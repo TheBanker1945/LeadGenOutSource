@@ -10,7 +10,6 @@ from pathlib import Path
 from datetime import datetime
 import sys
 import os
-import streamlit_authenticator as stauth
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -36,62 +35,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# ============================================================================
-# AUTHENTICATION
-# ============================================================================
-
-def check_authentication():
-    """Check if user is authenticated using Streamlit secrets."""
-    if 'authentication_status' not in st.session_state:
-        st.session_state['authentication_status'] = None
-    
-    # Get credentials from Streamlit secrets
-    try:
-        credentials = st.secrets.get("credentials", None)
-        if not credentials:
-            # Development mode - no authentication required
-            st.session_state['authentication_status'] = True
-            st.session_state['name'] = "Developer"
-            return True
-    except Exception:
-        # Running locally without secrets - no authentication
-        st.session_state['authentication_status'] = True
-        st.session_state['name'] = "Local User"
-        return True
-    
-    # Production mode with authentication
-    authenticator = stauth.Authenticate(
-        credentials,
-        st.secrets.get("cookie", {}).get("name", "lead_gen_auth"),
-        st.secrets.get("cookie", {}).get("key", "random_key_12345"),
-        st.secrets.get("cookie", {}).get("expiry_days", 30)
-    )
-    
-    name, authentication_status, username = authenticator.login("Login", "main")
-    
-    if authentication_status == False:
-        st.error("Username/password is incorrect")
-        return False
-    elif authentication_status == None:
-        st.warning("Please enter your username and password")
-        return False
-    else:
-        st.session_state['name'] = name
-        st.session_state['username'] = username
-        
-        # Add logout button in sidebar
-        with st.sidebar:
-            st.write(f"Welcome *{name}*")
-            authenticator.logout("Logout", "sidebar")
-        
-        return True
-
-# Check authentication before showing dashboard
-if not check_authentication():
-    st.stop()
-
-# ============================================================================
 
 # Custom CSS
 st.markdown("""

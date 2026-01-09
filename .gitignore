@@ -46,9 +46,6 @@ env/
 output/
 *.csv
 
-# Streamlit secrets (IMPORTANT: Keep credentials private!)
-.streamlit/secrets.toml
-
 # OS
 .DS_Store
 Thumbs.db
