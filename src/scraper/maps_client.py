@@ -44,7 +44,7 @@ class GoogleMapsClient:
         # Initialize rate limiter with hard monthly limit
         self.rate_limiter = RateLimiter(monthly_limit=monthly_limit)
 
-    def search_text(self, query: str, max_pages: int = 1, language_code: str = "nl") -> list[dict]:
+    def search_text(self, query: str, max_pages: int = 1, language_code: str = "en") -> list[dict]:
         """
         Search for places using text query.
         

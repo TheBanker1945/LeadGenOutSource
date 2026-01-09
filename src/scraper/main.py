@@ -15,7 +15,8 @@ def run_scraper(
     has_phone_filter: FilterOption = "Any",
     operational_only: bool = True,
     monthly_limit: int = 1000,
-    main_city: str = None
+    main_city: str = None,
+    language_code: str = "en"
 ) -> dict:
     """
     Run the scraper for a specific city and niche with configurable filters.
@@ -30,6 +31,7 @@ def run_scraper(
         operational_only: If True, skip non-operational businesses
         monthly_limit: Monthly API request limit (default: 1000)
         main_city: Main city name (used when city is a neighborhood, for proper database storage)
+        language_code: Language code for API responses (default: "en" for English)
     
     Returns:
         Dictionary with scraping statistics.
@@ -50,7 +52,7 @@ def run_scraper(
 
     # Fetch results from Google Maps
     print(f"\nFetching results from Google Maps (max {max_pages} pages)...")
-    places = client.search_text(query, max_pages=max_pages)
+    places = client.search_text(query, max_pages=max_pages, language_code=language_code)
 
     # Statistics
     stats = {

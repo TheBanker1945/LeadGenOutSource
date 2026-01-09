@@ -178,7 +178,8 @@ def main():
                         has_website_filter=has_website_filter,
                         has_phone_filter=has_phone_filter,
                         operational_only=operational_only,
-                        monthly_limit=monthly_request_limit
+                        monthly_limit=monthly_request_limit,
+                        language_code=language_code
                     )
                     
                     # Aggregate statistics

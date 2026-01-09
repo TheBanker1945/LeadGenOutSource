@@ -298,11 +298,6 @@ max_pages = st.sidebar.number_input(
     value=config.get("scraping", {}).get("max_pages_per_area", 1)
 )
 
-use_neighborhood_splitting = st.sidebar.checkbox(
-    "Use Neighborhood Splitting",
-    value=config.get("scraping", {}).get("use_neighborhood_splitting", True)
-)
-
 # Save button
 if st.sidebar.button("💾 Save Configuration", type="primary"):
     new_config = {
@@ -316,7 +311,7 @@ if st.sidebar.button("💾 Save Configuration", type="primary"):
         },
         "scraping": {
             "max_pages_per_area": max_pages,
-            "use_neighborhood_splitting": use_neighborhood_splitting,
+            "use_neighborhood_splitting": config.get("scraping", {}).get("use_neighborhood_splitting", True),
             "language_code": config.get("scraping", {}).get("language_code", "en")
         },
         "api_limits": {
@@ -467,13 +462,13 @@ with tab2:
         st.info(f"""
         **Filters:** Website={has_website}, Phone={has_phone}  
         **Max Pages:** {max_pages} per area  
-        **Neighborhood Splitting:** {'Enabled' if use_neighborhood_splitting else 'Disabled'}  
+        **Neighborhood Splitting:** {'Enabled' if config.get('scraping', {}).get('use_neighborhood_splitting', True) else 'Disabled'}  
         """)
     
     # Estimated requests
     st.subheader("📊 Estimated API Usage")
     
-    if use_neighborhood_splitting:
+    if config.get('scraping', {}).get('use_neighborhood_splitting', True):
         avg_neighborhoods = 10
         estimated_requests = len(locations) * len(niches) * avg_neighborhoods * max_pages
     else:
@@ -519,6 +514,7 @@ with tab2:
         # Get monthly limit from config
         config = load_config()
         monthly_limit = config.get("api_limits", {}).get("monthly_request_limit", 1000)
+        language_code = config.get("scraping", {}).get("language_code", "en")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -546,6 +542,7 @@ with tab2:
                     
                     try:
                         # Get search areas
+                        use_neighborhood_splitting = config.get('scraping', {}).get('use_neighborhood_splitting', True)
                         if use_neighborhood_splitting:
                             search_areas = get_search_areas(location, country)
                         else:
@@ -565,7 +562,8 @@ with tab2:
                                 has_phone_filter=has_phone,
                                 operational_only=operational_only,
                                 monthly_limit=monthly_limit,
-                                main_city=main_city_param
+                                main_city=main_city_param,
+                                language_code=language_code
                             )
                             
                             overall_stats["total_scraped"] += area_stats.get("total", 0)
