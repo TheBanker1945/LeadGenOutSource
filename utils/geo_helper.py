@@ -46,7 +46,7 @@ def get_search_areas(city: str, country: str = "") -> list[str]:
         return [city]
     
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash-exp")
+    model = genai.GenerativeModel("gemini-pro")  # Use the stable gemini-pro model
     
     location = f"{city}, {country}" if country else city
     

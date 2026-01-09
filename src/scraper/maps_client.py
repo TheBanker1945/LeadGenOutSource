@@ -74,25 +74,13 @@ class GoogleMapsClient:
         if remaining <= 100 or (used / self.rate_limiter.monthly_limit) >= 0.8:
             self.rate_limiter.print_usage_warning()
         
+        print(f"  Searching: {query}")
         print(f"  Max pages to fetch: {max_pages}")
         print(f"  API requests remaining this month: {remaining}")
         
-            query: Search query (e.g., "plumbers in Toronto")
-            max_pages: Maximum number of pages to fetch (safety limit for budget, default 1)
-            language_code: Language for results (default "nl" for Dutch)
-        
-        Returns:
-            List of place data dictionaries.
-        """
-        print(f"  Max pages to fetch: {max_pages}")
-                
-                # Record successful request
-                self.rate_limiter.record_request(1)
-
-            except requests.RequestException as e:
-                print(f"API request failed: {e}")
-                # Still record the failed request (it counts against quota)
-                self.rate_limiter.record_request(1
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": self.api_key,
             "X-Goog-FieldMask": self.FIELD_MASK,
         }
 
@@ -118,9 +106,14 @@ class GoogleMapsClient:
                 )
                 response.raise_for_status()
                 data = response.json()
+                
+                # Record successful request
+                self.rate_limiter.record_request(1)
 
             except requests.RequestException as e:
                 print(f"API request failed: {e}")
+                # Still record the failed request (it counts against quota)
+                self.rate_limiter.record_request(1)
                 break
 
             places = data.get("places", [])

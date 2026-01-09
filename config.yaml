@@ -1,113 +1,18 @@
-# Lead Generation Configuration File
-# Edit this file to customize your scraping parameters
-
-# =============================================================================
-# LOCATIONS
-# =============================================================================
-# List of cities/locations to scrape
-# Can be a single location or multiple locations for bulk processing
 locations:
-  - "Toronto"
-  # - "Vancouver"
-  # - "Montreal"
-  # - "Calgary"
-  # - "Edmonton"
-
-# Country code (optional, but recommended for better results)
-# Examples: "Canada", "USA", "UK", "Australia", "Netherlands"
-country: "Canada"
-
-# =============================================================================
-# NICHES
-# =============================================================================
-# Business types/niches to search for
-# Can be a single niche or multiple niches for bulk processing
+  - Toronto
+country: Canada
 niches:
-  - "plumbers"
-  # - "electricians"
-  # - "roofing contractors"
-  # - "hvac services"
-  # - "landscaping companies"
-
-# =============================================================================
-# FILTERS
-# =============================================================================
-# Configure what types of businesses to include/exclude
+  - plumbers
 filters:
-  # Website requirement: "Yes" = must have website, "No" = must NOT have website, "Any" = don't care
-  has_website: "Any"
-
-  # Phone requirement: "Yes" = must have phone, "No" = must NOT have phone, "Any" = don't care
+  has_website: Any
   has_phone: "Yes"
-
-  # Operational status: Only include currently operational businesses
   operational_only: true
-
-# =============================================================================
-# SCRAPING SETTINGS
-# =============================================================================
 scraping:
-  # Maximum pages to fetch per search area (1 page = ~20 results)
-  # Be careful with high numbers - Google Maps API costs money!
   max_pages_per_area: 1
-
-  # Enable neighborhood splitting (uses Gemini AI to split cities into 10-15 areas)
-  # This makes scraping more comprehensive but uses Gemini API
   use_neighborhood_splitting: true
-
-  # Language code for results (default: "en" for English)
-  # Examples: "en", "nl" (Dutch), "fr" (French), "es" (Spanish)
-  language_code: "en"
-
-# =============================================================================
-# API LIMITS (SAFETY PROTECTION)
-# =============================================================================
+  language_code: en
 api_limits:
-  # HARD LIMIT: Maximum Google Maps API requests per month
-  # This limit CANNOT be exceeded and resets automatically each month
-  # Prevents unexpected API costs
-  # Default: 1000 requests/month
   monthly_request_limit: 1000
-
-# =============================================================================
-# OUTPUT SETTINGS
-# =============================================================================
 output:
-  # Directory where CSV files will be saved
-  csv_output_dir: "output/csv"
-
-  # CSV filename pattern: {niche}_{location}_{timestamp}.csv
-  # You don't need to change this unless you want a different naming scheme
-
-  # Include headers in CSV files
+  csv_output_dir: output/csv
   include_headers: true
-# =============================================================================
-# EXAMPLES
-# =============================================================================
-# Example 1: Find businesses WITHOUT websites (original use case)
-# filters:
-#   has_website: "No"
-#   has_phone: "Yes"
-
-# Example 2: Find ALL businesses with phone numbers
-# filters:
-#   has_website: "Any"
-#   has_phone: "Yes"
-
-# Example 3: Find businesses WITH websites but WITHOUT phone numbers
-# filters:
-#   has_website: "Yes"
-#   has_phone: "No"
-
-# Example 4: Bulk processing - 100 locations × 5 niches = 500 CSVs
-# locations:
-#   - "Toronto"
-#   - "Vancouver"
-#   - "Montreal"
-#   - ... (add 97 more cities)
-# niches:
-#   - "plumbers"
-#   - "electricians"
-#   - "roofers"
-#   - "hvac"
-#   - "landscapers"

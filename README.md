@@ -4,6 +4,7 @@ A powerful, configurable Google Maps scraper for generating business leads with 
 
 ## 🎯 Features
 
+- **🌐 Web Dashboard**: User-friendly web interface for all operations
 - **Smart Neighborhood Splitting**: Uses Gemini AI to split cities into 10-15 areas for comprehensive coverage
 - **Configurable Filters**: Flexible filtering by website presence, phone availability, and operational status
 - **Bulk Processing**: Scrape multiple locations × multiple niches in one run
@@ -12,6 +13,7 @@ A powerful, configurable Google Maps scraper for generating business leads with 
 - **API Cost Optimization**: Efficient field masking and pagination
 - **Progress Tracking**: Real-time statistics and progress indicators
 - **🛡️ Monthly API Limit**: Hard limit of 1000 requests/month prevents unexpected costs (auto-resets monthly)
+- **📊 Live Usage Monitoring**: Real-time API usage dashboard with visual progress bars
 
 ## 📋 Requirements
 
@@ -20,6 +22,34 @@ A powerful, configurable Google Maps scraper for generating business leads with 
 - Gemini API key (for neighborhood splitting, optional)
 
 ## 🚀 Quick Start
+
+### Option 1: Web Dashboard (Recommended)
+
+The easiest way to use the tool is through the web dashboard:
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch dashboard
+python run_dashboard.py
+```
+
+Or on Windows, double-click `run_dashboard.bat`
+
+The dashboard will open at: **http://localhost:8501**
+
+#### Dashboard Features:
+
+- ⚙️ **Configuration Panel**: Edit all settings in the UI
+- 📊 **Overview Tab**: Live API usage stats and database metrics
+- ▶️ **Scraper Tab**: Start/stop scraping with real-time progress
+- 📋 **Leads Tab**: Browse, search, and filter all collected leads
+- 📤 **Export Tab**: Export leads to CSV with custom filters
+
+### Option 2: Command Line
+
+For automated/scheduled scraping:
 
 ### 1. Install Dependencies
 
