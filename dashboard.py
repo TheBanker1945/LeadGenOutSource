@@ -125,6 +125,52 @@ def get_leads_dataframe():
     # Convert to DataFrame
     df = pd.DataFrame(leads)
     
+    # Extract main city from city field (remove neighborhood details)
+    # e.g., "Scheveningen, Den Haag" -> "Den Haag"
+    # e.g., "Etobicoke" -> "Toronto" (Toronto neighborhoods without city suffix)
+    def extract_main_city(city_str):
+        if pd.isna(city_str) or not city_str:
+            return ""
+        city_str = str(city_str).strip()
+        
+        # If city contains comma, take the part after comma (main city)
+        if ',' in city_str:
+            return city_str.split(',')[-1].strip()
+        
+        # Handle Toronto neighborhoods (they don't have ", Toronto" suffix)
+        toronto_neighborhoods = ['Etobicoke', 'Scarborough', 'North York', 'Downtown', 'Yorkville', 
+                                'Entertainment District', 'Financial District', 'Junction Triangle',
+                                'Kensington Market', 'The Annex', 'The Beaches', 'Leslieville',
+                                'Liberty Village', 'Parkdale', 'Mimico', 'Weston']
+        if city_str in toronto_neighborhoods:
+            return 'Toronto'
+        
+        # Handle Calgary neighborhoods
+        calgary_neighborhoods = ['Beltline', 'Crescent Heights', 'Inglewood', 'Kensington', 'Sunalta',
+                               'Bridgeland', 'East Village', 'Forest Lawn', 'Manchester', 'Ogden',
+                               'Alyth/Bonnybrook', 'Acadia', 'Midnapore', 'Montgomery']
+        if city_str in calgary_neighborhoods:
+            return 'Calgary'
+        
+        # Handle Miami neighborhoods
+        miami_neighborhoods = ['Brickell', 'Coconut Grove', 'Edgewater', 'Wynwood', 'Little Havana',
+                              'South Beach', 'Overtown', 'Little Haiti', 'Liberty City', 'Allapattah',
+                              'West Little River', 'Doral', 'Hialeah', 'Medley', 'Opa-locka', 'Sweetwater']
+        if city_str in miami_neighborhoods:
+            return 'Miami'
+        
+        # Handle New York neighborhoods
+        ny_neighborhoods = ['Sunset Park', 'Long Island City', 'Bushwick', 'Red Hook', 'Chinatown',
+                           'The Garment District', 'Mott Haven', 'Astoria', 'DUMBO', 'Hunts Point',
+                           'Jamaica', 'Washington Heights', 'East Harlem', 'Concourse']
+        if city_str in ny_neighborhoods:
+            return 'New York'
+        
+        # Otherwise, return as is (it's already a main city)
+        return city_str
+    
+    df['main_city'] = df['city'].apply(extract_main_city)
+    
     # Select and rename columns for display
     display_columns = {
         'id': 'ID',
@@ -136,7 +182,8 @@ def get_leads_dataframe():
         'niche': 'Niche',
         'rating': 'Rating',
         'operating_hours': 'Hours',
-        'created_at': 'Added On'
+        'created_at': 'Added On',
+        'main_city': 'Main City'
     }
     
     df = df[list(display_columns.keys())].rename(columns=display_columns)
@@ -148,7 +195,7 @@ def get_leads_dataframe():
 
 
 def export_leads_ui(niche=None, city=None):
-    """Export leads to CSV with optional filters."""
+    """Export leads to CSV - returns CSV data and count for browser download only."""
     repo = LeadRepository()
     leads = repo.get_all_leads(city=city, niche=niche)
     
@@ -159,27 +206,34 @@ def export_leads_ui(niche=None, city=None):
     formatted_leads = []
     for lead in leads:
         formatted_lead = {
-            "company_name": lead.get("company_name", ""),
-            "address": lead.get("address", ""),
-            "website": lead.get("website", ""),
-            "phone": lead.get("phone", ""),
-            "rating": format_rating(lead.get("rating")),
-            "operating_hours": lead.get("operating_hours", ""),
+            "Company Name": lead.get("company_name", ""),
+            "Address": lead.get("address", ""),
+            "Website": lead.get("website", ""),
+            "Phone": lead.get("phone", ""),
+            "Rating": format_rating(lead.get("rating")),
+            "Operating Hours": lead.get("operating_hours", ""),
         }
         formatted_leads.append(formatted_lead)
     
-    # Generate filename
+    # Generate CSV data in memory (no file saving)
+    import io
+    import csv
+    
+    output = io.StringIO()
+    if formatted_leads:
+        fieldnames = formatted_leads[0].keys()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(formatted_leads)
+    
+    csv_data = output.getvalue()
+    
+    # Generate filename for download
     location_str = city if city else "all_locations"
     niche_str = niche if niche else "all_niches"
     filename = generate_csv_filename(niche_str, location_str)
     
-    output_dir = Path("output/csv")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / filename
-    
-    count = export_to_csv(formatted_leads, output_path, include_headers=True)
-    
-    return str(output_path), count
+    return csv_data, len(formatted_leads), filename
 
 
 # ============================================================================
@@ -499,6 +553,9 @@ with tab2:
                         
                         # Scrape each area
                         for area in search_areas:
+                            # If using neighborhood splitting, pass the main city
+                            main_city_param = location if (use_neighborhood_splitting and area != location) else None
+                            
                             area_stats = run_scraper(
                                 city=area,
                                 niche=niche,
@@ -507,7 +564,8 @@ with tab2:
                                 has_website_filter=has_website,
                                 has_phone_filter=has_phone,
                                 operational_only=operational_only,
-                                monthly_limit=monthly_limit
+                                monthly_limit=monthly_limit,
+                                main_city=main_city_param
                             )
                             
                             overall_stats["total_scraped"] += area_stats.get("total", 0)
@@ -581,7 +639,8 @@ with tab3:
             filter_niche = st.selectbox("Filter by Niche", ["All"] + sorted(df['Niche'].unique().tolist()))
         
         with col3:
-            filter_city = st.selectbox("Filter by City", ["All"] + sorted(df['City'].unique().tolist()))
+            # Use Main City for filtering (shows only base cities, not neighborhoods)
+            filter_city = st.selectbox("Filter by City", ["All"] + sorted(df['Main City'].unique().tolist()))
         
         # Apply filters
         filtered_df = df.copy()
@@ -595,14 +654,17 @@ with tab3:
             filtered_df = filtered_df[filtered_df['Niche'] == filter_niche]
         
         if filter_city != "All":
-            filtered_df = filtered_df[filtered_df['City'] == filter_city]
+            filtered_df = filtered_df[filtered_df['Main City'] == filter_city]
         
         # Display stats
         st.metric("Total Leads Shown", len(filtered_df))
         
+        # Hide Main City column from display (only used for filtering)
+        display_df = filtered_df.drop(columns=['Main City'])
+        
         # Display table
         st.dataframe(
-            filtered_df,
+            display_df,
             use_container_width=True,
             hide_index=True,
             height=500
@@ -617,81 +679,76 @@ with tab4:
     
     st.subheader("Export Options")
     
-    col1, col2 = st.columns(2)
+    # Get actual niches and cities from database
+    db_df = get_leads_dataframe()
     
-    with col1:
-        export_niche = st.selectbox(
-            "Select Niche",
-            ["All Niches"] + niches,
-            key="export_niche"
-        )
-    
-    with col2:
-        export_city = st.selectbox(
-            "Select City",
-            ["All Cities"] + locations,
-            key="export_city"
-        )
-    
-    # Preview
-    niche_filter = None if export_niche == "All Niches" else export_niche
-    city_filter = None if export_city == "All Cities" else export_city
-    
-    repo = LeadRepository()
-    preview_leads = repo.get_all_leads(city=city_filter, niche=niche_filter)
-    
-    st.info(f"📊 {len(preview_leads)} leads will be exported")
-    
-    # Export button
-    if st.button("📥 Export to CSV", type="primary", use_container_width=True):
-        if not preview_leads:
-            st.warning("No leads to export with selected filters!")
-        else:
-            csv_path, count = export_leads_ui(niche=niche_filter, city=city_filter)
-            
-            if csv_path:
-                st.markdown(
-                    f'<div class="success-box">'
-                    f'<strong>✅ Export Successful!</strong><br>'
-                    f'Exported {count} leads<br>'
-                    f'File: <code>{csv_path}</code>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
+    if db_df.empty:
+        st.info("No leads in database yet. Start scraping to collect leads!")
+    else:
+        available_niches = sorted(db_df['Niche'].unique().tolist())
+        available_cities = sorted(db_df['Main City'].unique().tolist())
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            export_niche = st.selectbox(
+                "Select Niche",
+                ["All Niches"] + available_niches,
+                key="export_niche"
+            )
+        
+        with col2:
+            export_city = st.selectbox(
+                "Select City",
+                ["All Cities"] + available_cities,
+                key="export_city"
+            )
+        
+        # Preview
+        niche_filter = None if export_niche == "All Niches" else export_niche
+        city_filter = None if export_city == "All Cities" else export_city
+        
+        repo = LeadRepository()
+        preview_leads = repo.get_all_leads(city=city_filter, niche=niche_filter)
+        
+        st.info(f"📊 {len(preview_leads)} leads will be exported")
+        
+        # Export button
+        if st.button("📥 Export to CSV", type="primary", use_container_width=True):
+            if not preview_leads:
+                st.warning("No leads to export with selected filters!")
+            else:
+                csv_data, count, filename = export_leads_ui(niche=niche_filter, city=city_filter)
                 
-                # Read file for download
-                with open(csv_path, 'rb') as f:
-                    csv_data = f.read()
+                if csv_data:
+                    st.success(f"✅ Ready to download {count} leads!")
+                    
+                    st.download_button(
+                        label="💾 Download CSV File",
+                        data=csv_data,
+                        file_name=filename,
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+        
+        st.divider()
+        
+        # Quick export all
+        st.subheader("📦 Bulk Export")
+        
+        if st.button("📥 Export ALL Leads", use_container_width=True):
+            csv_data, count, filename = export_leads_ui()
+            
+            if csv_data:
+                st.success(f"✅ Ready to download {count} leads!")
                 
                 st.download_button(
-                    label="💾 Download CSV File",
+                    label="💾 Download All Leads CSV",
                     data=csv_data,
-                    file_name=Path(csv_path).name,
+                    file_name=filename,
                     mime="text/csv",
                     use_container_width=True
                 )
-    
-    st.divider()
-    
-    # Quick export all
-    st.subheader("📦 Bulk Export")
-    
-    if st.button("📥 Export ALL Leads", use_container_width=True):
-        csv_path, count = export_leads_ui()
-        
-        if csv_path:
-            st.success(f"✅ Exported {count} leads to {csv_path}")
-            
-            with open(csv_path, 'rb') as f:
-                csv_data = f.read()
-            
-            st.download_button(
-                label="💾 Download All Leads CSV",
-                data=csv_data,
-                file_name=Path(csv_path).name,
-                mime="text/csv",
-                use_container_width=True
-            )
 
 # Footer
 st.divider()

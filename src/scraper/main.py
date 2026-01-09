@@ -14,13 +14,14 @@ def run_scraper(
     has_website_filter: FilterOption = "Any",
     has_phone_filter: FilterOption = "Any",
     operational_only: bool = True,
-    monthly_limit: int = 1000
+    monthly_limit: int = 1000,
+    main_city: str = None
 ) -> dict:
     """
     Run the scraper for a specific city and niche with configurable filters.
     
     Args:
-        city: City to search in (e.g., "Toronto")
+        city: City or neighborhood to search in (e.g., "Toronto" or "Downtown")
         niche: Business niche to search for (e.g., "plumbers")
         max_pages: Maximum number of pages to fetch from Google Maps API
         country: Country to search in (e.g., "Netherlands")
@@ -28,6 +29,7 @@ def run_scraper(
         has_phone_filter: "Yes" = must have phone, "No" = must NOT have phone, "Any" = don't care
         operational_only: If True, skip non-operational businesses
         monthly_limit: Monthly API request limit (default: 1000)
+        main_city: Main city name (used when city is a neighborhood, for proper database storage)
     
     Returns:
         Dictionary with scraping statistics.
@@ -100,10 +102,13 @@ def run_scraper(
             icon = "🔴"
 
         # Map to database schema
+        # Format city properly: if main_city provided (neighborhood mode), use "Neighborhood, MainCity"
+        city_value = f"{city}, {main_city}" if main_city and city != main_city else city
+        
         lead_data = {
             "company_name": company_name,
             "address": address,
-            "city": city if city else country,
+            "city": city_value if city_value else country,
             "phone": phone if phone else None,
             "website": website_url if website_url else None,
             "niche": niche,

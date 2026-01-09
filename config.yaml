@@ -1,8 +1,10 @@
 locations:
-- Calgary
-country: Canada
+- Amsterdam
+- Den haag
+- Rotterdam
+country: Nederland
 niches:
-- HVAC Contractors
+- Autopoetsbedrijf
 filters:
   has_website: Any
   has_phone: Any
