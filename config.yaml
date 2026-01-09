@@ -1,8 +1,8 @@
 locations:
-- Utrecht
-country: Nederland
+- Chicago
+country: USA
 niches:
-- Autopoetsbedrijf
+- gym
 filters:
   has_website: Any
   has_phone: Any
