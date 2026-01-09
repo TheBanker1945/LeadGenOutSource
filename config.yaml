@@ -1,11 +1,11 @@
 locations:
-  - Toronto
+- Calgary
 country: Canada
 niches:
-  - plumbers
+- HVAC Contractors
 filters:
   has_website: Any
-  has_phone: "Yes"
+  has_phone: Any
   operational_only: true
 scraping:
   max_pages_per_area: 1

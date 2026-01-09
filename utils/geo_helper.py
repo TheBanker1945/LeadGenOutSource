@@ -4,7 +4,8 @@ import json
 import os
 import re
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -45,8 +46,8 @@ def get_search_areas(city: str, country: str = "") -> list[str]:
         print("⚠️  GEMINI_API_KEY not found, using city only")
         return [city]
     
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-pro")  # Use the stable gemini-pro model
+    client = genai.Client(api_key=api_key)
+    model_id = "gemini-2.0-flash-exp"  # Use latest flash model
     
     location = f"{city}, {country}" if country else city
     
@@ -67,7 +68,10 @@ Return ONLY a valid JSON array of strings:"""
 
     try:
         print(f"\n🤖 Asking Gemini for neighborhoods in {location}...")
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt
+        )
         response_text = response.text.strip()
         
         # Clean up response - remove markdown code blocks if present

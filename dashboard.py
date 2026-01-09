@@ -462,6 +462,10 @@ with tab2:
     if start_button:
         st.session_state.scraping_active = True
         
+        # Get monthly limit from config
+        config = load_config()
+        monthly_limit = config.get("api_limits", {}).get("monthly_request_limit", 1000)
+        
         progress_bar = st.progress(0)
         status_text = st.empty()
         
