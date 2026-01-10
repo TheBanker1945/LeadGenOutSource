@@ -1,5 +1,6 @@
 """Handles CRUD operations for leads."""
 
+import os
 import sqlite3
 from typing import Optional
 
@@ -27,9 +28,25 @@ class LeadRepository:
         Returns:
             True if lead was added successfully, False if phone already exists.
         """
+        conn = get_connection()
+        cursor = conn.cursor()
+        
         try:
-            with get_connection() as conn:
-                conn.execute("""
+            if os.getenv("DATABASE_URL"):
+                # PostgreSQL uses %s placeholders
+                cursor.execute("""
+                    INSERT INTO leads (
+                        company_name, address, city, phone, website, 
+                        niche, rating, operating_hours
+                    )
+                    VALUES (
+                        %(company_name)s, %(address)s, %(city)s, %(phone)s, %(website)s,
+                        %(niche)s, %(rating)s, %(operating_hours)s
+                    )
+                """, data)
+            else:
+                # SQLite uses :name placeholders
+                cursor.execute("""
                     INSERT INTO leads (
                         company_name, address, city, phone, website, 
                         niche, rating, operating_hours
@@ -39,10 +56,15 @@ class LeadRepository:
                         :niche, :rating, :operating_hours
                     )
                 """, data)
-                conn.commit()
-                return True
-        except sqlite3.IntegrityError:
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return True
+        except (sqlite3.IntegrityError, Exception) as e:
             # Phone number already exists - skip duplicate
+            cursor.close()
+            conn.close()
             return False
 
     def get_pending_mockups(
@@ -63,54 +85,57 @@ class LeadRepository:
         Returns:
             List of lead dictionaries.
         """
-        with get_connection() as conn:
-            query = """
-                SELECT id, company_name, city, phone, website, niche, status, 
-                       mockup_path, laptop_mockup_path, created_at
-                FROM leads
-                WHERE status = 'NEW'
-            """
-            
-            params = []
-            
-            # Add city filter if provided
-            # Match city at the end (for "Neighborhood, City" format) or neighborhoods without suffix
-            if city:
-                if city == 'Toronto':
-                    # Match "Neighborhood, Toronto" OR Toronto neighborhoods without suffix
-                    toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
-                    query += f" AND (city LIKE ? OR city IN {toronto_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'Calgary':
-                    calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
-                    query += f" AND (city LIKE ? OR city IN {calgary_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'Miami':
-                    miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
-                    query += f" AND (city LIKE ? OR city IN {miami_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'New York':
-                    ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
-                    query += f" AND (city LIKE ? OR city IN {ny_hoods})"
-                    params.append(f"%,{city}")
-                else:
-                    # Standard matching for other cities (case-insensitive with LIKE)
-                    query += " AND (city LIKE ? OR city LIKE ?)"
-                    params.append(f"%,{city}")
-                    params.append(f"%{city}%")
-            
-            # Add niche filter if provided
-            if niche:
-                query += " AND niche = ?"
-                params.append(niche)
-            
-            query += " ORDER BY created_at ASC"
-            
-            if limit:
-                query += f" LIMIT {int(limit)}"
-            
-            cursor = conn.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT id, company_name, city, phone, website, niche, status, 
+                   mockup_path, laptop_mockup_path, created_at
+            FROM leads
+            WHERE status = 'NEW'
+        """
+        
+        params = []
+        placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
+        
+        # Add city filter if provided
+        if city:
+            if city == 'Toronto':
+                toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
+                query += f" AND (city LIKE {placeholder} OR city IN {toronto_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'Calgary':
+                calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
+                query += f" AND (city LIKE {placeholder} OR city IN {calgary_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'Miami':
+                miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
+                query += f" AND (city LIKE {placeholder} OR city IN {miami_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'New York':
+                ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
+                query += f" AND (city LIKE {placeholder} OR city IN {ny_hoods})"
+                params.append(f"%,{city}")
+            else:
+                query += f" AND (city LIKE {placeholder} OR city LIKE {placeholder})"
+                params.append(f"%,{city}")
+                params.append(f"%{city}%")
+        
+        # Add niche filter if provided
+        if niche:
+            query += f" AND niche = {placeholder}"
+            params.append(niche)
+        
+        query += " ORDER BY created_at ASC"
+        
+        if limit:
+            query += f" LIMIT {int(limit)}"
+        
+        cursor.execute(query, params)
+        results = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return results
 
     def update_status(
         self, 
@@ -128,26 +153,32 @@ class LeadRepository:
             mockup_path: Optional path to the screenshot mockup.
             laptop_mockup_path: Optional path to the laptop frame mockup.
         """
-        with get_connection() as conn:
-            if mockup_path and laptop_mockup_path:
-                conn.execute("""
-                    UPDATE leads
-                    SET status = ?, mockup_path = ?, laptop_mockup_path = ?
-                    WHERE id = ?
-                """, (status, mockup_path, laptop_mockup_path, lead_id))
-            elif mockup_path:
-                conn.execute("""
-                    UPDATE leads
-                    SET status = ?, mockup_path = ?
-                    WHERE id = ?
-                """, (status, mockup_path, lead_id))
-            else:
-                conn.execute("""
-                    UPDATE leads
-                    SET status = ?
-                    WHERE id = ?
-                """, (status, lead_id))
-            conn.commit()
+        conn = get_connection()
+        cursor = conn.cursor()
+        placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
+        
+        if mockup_path and laptop_mockup_path:
+            cursor.execute(f"""
+                UPDATE leads
+                SET status = {placeholder}, mockup_path = {placeholder}, laptop_mockup_path = {placeholder}
+                WHERE id = {placeholder}
+            """, (status, mockup_path, laptop_mockup_path, lead_id))
+        elif mockup_path:
+            cursor.execute(f"""
+                UPDATE leads
+                SET status = {placeholder}, mockup_path = {placeholder}
+                WHERE id = {placeholder}
+            """, (status, mockup_path, lead_id))
+        else:
+            cursor.execute(f"""
+                UPDATE leads
+                SET status = {placeholder}
+                WHERE id = {placeholder}
+            """, (status, lead_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
 
     def get_all_leads(
         self,
@@ -158,52 +189,55 @@ class LeadRepository:
         Returns all leads from the database.
         
         Args:
-            city: Optional city filter. If provided, only returns leads from this city.
-            niche: Optional niche filter. If provided, only returns leads for this niche.
+        conn = get_connection()
+        cursor = conn.cursor()
         
-        Returns:
-            List of lead dictionaries with all fields.
+        query = """
+            SELECT id, company_name, address, city, phone, website, 
+                   niche, rating, operating_hours, status,
+                   mockup_path, laptop_mockup_path, created_at
+            FROM leads
+            WHERE 1=1
         """
-        with get_connection() as conn:
-            query = """
-                SELECT id, company_name, address, city, phone, website, 
-                       niche, rating, operating_hours, status,
-                       mockup_path, laptop_mockup_path, created_at
-                FROM leads
-                WHERE 1=1
-            """
-            
-            params = []
-            
-            # Add city filter if provided
-            # Match city at the end (for "Neighborhood, City" format) or neighborhoods without suffix
-            if city:
-                if city == 'Toronto':
-                    # Match "Neighborhood, Toronto" OR Toronto neighborhoods without suffix
-                    toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
-                    query += f" AND (city LIKE ? OR city IN {toronto_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'Calgary':
-                    calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
-                    query += f" AND (city LIKE ? OR city IN {calgary_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'Miami':
-                    miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
-                    query += f" AND (city LIKE ? OR city IN {miami_hoods})"
-                    params.append(f"%,{city}")
-                elif city == 'New York':
-                    ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
-                    query += f" AND (city LIKE ? OR city IN {ny_hoods})"
-                    params.append(f"%,{city}")
-                else:
-                    # Standard matching for other cities (case-insensitive with LIKE)
-                    query += " AND (city LIKE ? OR city LIKE ?)"
-                    params.append(f"%,{city}")
-                    params.append(f"%{city}%")
-            
-            # Add niche filter if provided
-            if niche:
-                query += " AND niche = ?"
+        
+        params = []
+        placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
+        
+        # Add city filter if provided
+        if city:
+            if city == 'Toronto':
+                toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
+                query += f" AND (city LIKE {placeholder} OR city IN {toronto_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'Calgary':
+                calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
+                query += f" AND (city LIKE {placeholder} OR city IN {calgary_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'Miami':
+                miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
+                query += f" AND (city LIKE {placeholder} OR city IN {miami_hoods})"
+                params.append(f"%,{city}")
+            elif city == 'New York':
+                ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
+                query += f" AND (city LIKE {placeholder} OR city IN {ny_hoods})"
+                params.append(f"%,{city}")
+            else:
+                query += f" AND (city LIKE {placeholder} OR city LIKE {placeholder})"
+                params.append(f"%,{city}")
+                params.append(f"%{city}%")
+        
+        # Add niche filter if provided
+        if niche:
+            query += f" AND niche = {placeholder}"
+            params.append(niche)
+        
+        query += " ORDER BY created_at DESC"
+        
+        cursor.execute(query, params)
+        results = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return results
                 params.append(niche)
             
             query += " ORDER BY created_at DESC"

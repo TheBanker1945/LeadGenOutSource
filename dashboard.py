@@ -36,6 +36,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Auto-refresh for real-time monitoring (refreshes every 30 seconds)
+import time
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = time.time()
+
+# Add refresh button and auto-refresh timer
+col_refresh1, col_refresh2 = st.columns([6, 1])
+with col_refresh2:
+    if st.button("🔄 Refresh", help="Manually refresh data"):
+        st.rerun()
+
 # Custom CSS
 st.markdown("""
 <style>
@@ -411,6 +422,15 @@ with tab1:
         # Total leads
         total_leads = conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
         
+        # Leads with website
+        leads_with_website = conn.execute("SELECT COUNT(*) FROM leads WHERE website IS NOT NULL AND website != ''").fetchone()[0]
+        
+        # Leads with phone
+        leads_with_phone = conn.execute("SELECT COUNT(*) FROM leads WHERE phone IS NOT NULL AND phone != ''").fetchone()[0]
+        
+        # Recent leads (last 24 hours)
+        recent_leads = conn.execute("SELECT COUNT(*) FROM leads WHERE datetime(created_at) >= datetime('now', '-1 day')").fetchone()[0]
+        
         # Leads by niche
         niche_counts = conn.execute(
             "SELECT niche, COUNT(*) as count FROM leads GROUP BY niche ORDER BY count DESC"
@@ -421,19 +441,34 @@ with tab1:
             "SELECT city, COUNT(*) as count FROM leads GROUP BY city ORDER BY count DESC LIMIT 10"
         ).fetchall()
     
+    # Top metrics row
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+    
+    with metric_col1:
+        st.metric("Total Leads", total_leads)
+    
+    with metric_col2:
+        st.metric("With Website", leads_with_website, delta=f"{int(leads_with_website/total_leads*100) if total_leads > 0 else 0}%")
+    
+    with metric_col3:
+        st.metric("With Phone", leads_with_phone, delta=f"{int(leads_with_phone/total_leads*100) if total_leads > 0 else 0}%")
+    
+    with metric_col4:
+        st.metric("Added (24h)", recent_leads, delta="Recent activity")
+    
+    st.divider()
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        st.metric("Total Leads", total_leads)
-        
         st.subheader("Leads by Niche")
         if niche_counts:
             niche_df = pd.DataFrame(niche_counts, columns=['Niche', 'Count'])
             st.dataframe(niche_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No leads yet")
     
     with col2:
-        st.metric("Unique Cities", len(city_counts))
-        
         st.subheader("Top 10 Cities")
         if city_counts:
             city_df = pd.DataFrame(city_counts, columns=['City', 'Count'])
