@@ -210,9 +210,3 @@ class LeadRepository:
         cursor.close()
         conn.close()
         return results
-                params.append(niche)
-            
-            query += " ORDER BY created_at DESC"
-            
-            cursor = conn.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
