@@ -6,12 +6,16 @@ Run this script once after setting up PostgreSQL on Render
 import sqlite3
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Check if DATABASE_URL is set
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("❌ DATABASE_URL environment variable not set!")
-    print("Please set DATABASE_URL to your PostgreSQL connection string.")
+    print("Please set DATABASE_URL in your .env file.")
     sys.exit(1)
 
 try:
