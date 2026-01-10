@@ -418,28 +418,35 @@ with tab1:
     st.subheader("📊 Database Statistics")
     
     init_db()
-    with get_connection() as conn:
-        # Total leads
-        total_leads = conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
-        
-        # Leads with website
-        leads_with_website = conn.execute("SELECT COUNT(*) FROM leads WHERE website IS NOT NULL AND website != ''").fetchone()[0]
-        
-        # Leads with phone
-        leads_with_phone = conn.execute("SELECT COUNT(*) FROM leads WHERE phone IS NOT NULL AND phone != ''").fetchone()[0]
-        
-        # Recent leads (last 24 hours)
-        recent_leads = conn.execute("SELECT COUNT(*) FROM leads WHERE datetime(created_at) >= datetime('now', '-1 day')").fetchone()[0]
-        
-        # Leads by niche
-        niche_counts = conn.execute(
-            "SELECT niche, COUNT(*) as count FROM leads GROUP BY niche ORDER BY count DESC"
-        ).fetchall()
-        
-        # Leads by city
-        city_counts = conn.execute(
-            "SELECT city, COUNT(*) as count FROM leads GROUP BY city ORDER BY count DESC LIMIT 10"
-        ).fetchall()
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Total leads
+    cursor.execute("SELECT COUNT(*) FROM leads")
+    total_leads = cursor.fetchone()[0]
+    
+    # Leads with website
+    cursor.execute("SELECT COUNT(*) FROM leads WHERE website IS NOT NULL AND website != ''")
+    leads_with_website = cursor.fetchone()[0]
+    
+    # Leads with phone
+    cursor.execute("SELECT COUNT(*) FROM leads WHERE phone IS NOT NULL AND phone != ''")
+    leads_with_phone = cursor.fetchone()[0]
+    
+    # Recent leads (last 24 hours) - use INTERVAL for PostgreSQL compatibility
+    cursor.execute("SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '1 day'" if os.getenv("DATABASE_URL") else "SELECT COUNT(*) FROM leads WHERE datetime(created_at) >= datetime('now', '-1 day')")
+    recent_leads = cursor.fetchone()[0]
+    
+    # Leads by niche
+    cursor.execute("SELECT niche, COUNT(*) as count FROM leads GROUP BY niche ORDER BY count DESC")
+    niche_counts = cursor.fetchall()
+    
+    # Leads by city
+    cursor.execute("SELECT city, COUNT(*) as count FROM leads GROUP BY city ORDER BY count DESC LIMIT 10")
+    city_counts = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
     
     # Top metrics row
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
