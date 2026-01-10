@@ -172,6 +172,12 @@ class LeadRepository:
         Returns all leads from the database.
         
         Args:
+            city: Optional city filter. If provided, only returns leads from this city.
+            niche: Optional niche filter. If provided, only returns leads for this niche.
+        
+        Returns:
+            List of lead dictionaries with all fields.
+        """
         conn = get_connection()
         cursor = conn.cursor()
         
