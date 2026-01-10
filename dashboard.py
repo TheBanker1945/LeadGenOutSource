@@ -420,22 +420,30 @@ with tab1:
     init_db()
     conn = get_connection()
     cursor = conn.cursor()
+    is_postgres = bool(os.getenv("DATABASE_URL"))
     
     # Total leads
     cursor.execute("SELECT COUNT(*) as count FROM leads")
-    total_leads = cursor.fetchone()['count'] if os.getenv("DATABASE_URL") else cursor.fetchone()[0]
+    result = cursor.fetchone()
+    total_leads = result['count'] if is_postgres else result[0]
     
     # Leads with website
     cursor.execute("SELECT COUNT(*) as count FROM leads WHERE website IS NOT NULL AND website != ''")
-    leads_with_website = cursor.fetchone()['count'] if os.getenv("DATABASE_URL") else cursor.fetchone()[0]
+    result = cursor.fetchone()
+    leads_with_website = result['count'] if is_postgres else result[0]
     
     # Leads with phone
     cursor.execute("SELECT COUNT(*) as count FROM leads WHERE phone IS NOT NULL AND phone != ''")
-    leads_with_phone = cursor.fetchone()['count'] if os.getenv("DATABASE_URL") else cursor.fetchone()[0]
+    result = cursor.fetchone()
+    leads_with_phone = result['count'] if is_postgres else result[0]
     
     # Recent leads (last 24 hours) - use INTERVAL for PostgreSQL compatibility
-    cursor.execute("SELECT COUNT(*) as count FROM leads WHERE created_at >= NOW() - INTERVAL '1 day'" if os.getenv("DATABASE_URL") else "SELECT COUNT(*) as count FROM leads WHERE datetime(created_at) >= datetime('now', '-1 day')")
-    recent_leads = cursor.fetchone()['count'] if os.getenv("DATABASE_URL") else cursor.fetchone()[0]
+    if is_postgres:
+        cursor.execute("SELECT COUNT(*) as count FROM leads WHERE created_at >= NOW() - INTERVAL '1 day'")
+    else:
+        cursor.execute("SELECT COUNT(*) as count FROM leads WHERE datetime(created_at) >= datetime('now', '-1 day')")
+    result = cursor.fetchone()
+    recent_leads = result['count'] if is_postgres else result[0]
     
     # Leads by niche
     cursor.execute("SELECT niche, COUNT(*) as count FROM leads GROUP BY niche ORDER BY count DESC")
