@@ -98,28 +98,11 @@ class LeadRepository:
         params = []
         placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
         
-        # Add city filter if provided
+        # Add city filter if provided - match "Neighborhood, City" format
         if city:
-            if city == 'Toronto':
-                toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
-                query += f" AND (city LIKE {placeholder} OR city IN {toronto_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'Calgary':
-                calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
-                query += f" AND (city LIKE {placeholder} OR city IN {calgary_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'Miami':
-                miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
-                query += f" AND (city LIKE {placeholder} OR city IN {miami_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'New York':
-                ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
-                query += f" AND (city LIKE {placeholder} OR city IN {ny_hoods})"
-                params.append(f"%,{city}")
-            else:
-                query += f" AND (city LIKE {placeholder} OR city LIKE {placeholder})"
-                params.append(f"%,{city}")
-                params.append(f"%{city}%")
+            # Simple pattern: match anything ending with ", CityName"
+            query += f" AND city LIKE {placeholder}"
+            params.append(f"%, {city}")
         
         # Add niche filter if provided
         if niche:
@@ -203,28 +186,11 @@ class LeadRepository:
         params = []
         placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
         
-        # Add city filter if provided
+        # Add city filter if provided - match "Neighborhood, City" format
         if city:
-            if city == 'Toronto':
-                toronto_hoods = "('Etobicoke','Scarborough','North York','Downtown','Yorkville','Entertainment District','Financial District','Junction Triangle','Kensington Market','The Annex','The Beaches','Leslieville','Liberty Village','Parkdale','Mimico','Weston')"
-                query += f" AND (city LIKE {placeholder} OR city IN {toronto_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'Calgary':
-                calgary_hoods = "('Beltline','Crescent Heights','Inglewood','Kensington','Sunalta','Bridgeland','East Village','Forest Lawn','Manchester','Ogden','Alyth/Bonnybrook','Acadia','Midnapore','Montgomery')"
-                query += f" AND (city LIKE {placeholder} OR city IN {calgary_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'Miami':
-                miami_hoods = "('Brickell','Coconut Grove','Edgewater','Wynwood','Little Havana','South Beach','Overtown','Little Haiti','Liberty City','Allapattah','West Little River','Doral','Hialeah','Medley','Opa-locka','Sweetwater')"
-                query += f" AND (city LIKE {placeholder} OR city IN {miami_hoods})"
-                params.append(f"%,{city}")
-            elif city == 'New York':
-                ny_hoods = "('Sunset Park','Long Island City','Bushwick','Red Hook','Chinatown','The Garment District','Mott Haven','Astoria','DUMBO','Hunts Point','Jamaica','Washington Heights','East Harlem','Concourse')"
-                query += f" AND (city LIKE {placeholder} OR city IN {ny_hoods})"
-                params.append(f"%,{city}")
-            else:
-                query += f" AND (city LIKE {placeholder} OR city LIKE {placeholder})"
-                params.append(f"%,{city}")
-                params.append(f"%{city}%")
+            # Simple pattern: match anything ending with ", CityName"
+            query += f" AND city LIKE {placeholder}"
+            params.append(f"%, {city}")
         
         # Add niche filter if provided
         if niche:
