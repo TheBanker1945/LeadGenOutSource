@@ -124,7 +124,7 @@ if st.session_state.authenticated:
         st.rerun()
     
     # Redirect to dashboard
-    st.switch_page("dashboard.py")
+    st.switch_page("pages/Dashboard.py")
 else:
     # Login form
     with st.form("login_form", clear_on_submit=False):

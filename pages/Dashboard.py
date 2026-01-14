@@ -12,7 +12,7 @@ import sys
 import os
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.database.db_manager import init_db, get_connection
 from src.database.repository import LeadRepository
@@ -45,9 +45,7 @@ if 'authenticated' not in st.session_state:
 
 if not st.session_state.authenticated:
     st.error("🔒 **Access Denied** - You must be logged in to access the dashboard")
-    st.info("👉 Please log in using the login page")
-    if st.button("Go to Login"):
-        st.switch_page("login.py")
+    st.info("👉 Please return to the login page")
     st.stop()
 
 # ============================================================================
@@ -281,7 +279,7 @@ if st.sidebar.button("🔓 Logout", use_container_width=True):
     st.session_state.username = None
     st.switch_page("login.py")
 st.sidebar.markdown("---")
-
+rerun(
 # Load config
 config = load_config()
 if not config:
