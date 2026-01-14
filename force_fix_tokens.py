@@ -27,6 +27,8 @@ def emergency_token_fix():
         print("   ✅ Database schema ready")
     except Exception as e:
         print(f"   ⚠️  Schema initialization warning: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Determine which database we're using
     if DATABASE_URL:
@@ -38,16 +40,37 @@ def emergency_token_fix():
     cursor = conn.cursor()
     
     try:
-        # Step 1: Delete all existing tokens
-        print("\n2️⃣ Clearing existing tokens...")
+        # Step 2: Check if table exists
+        print("\n2️⃣ Checking auth_tokens table...")
         if DATABASE_URL:
-            cursor.execute("DELETE FROM auth_tokens")
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'auth_tokens'
+                )
+            """)
+            table_exists = cursor.fetchone()[0]
         else:
-            cursor.execute("DELETE FROM auth_tokens")
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='auth_tokens'
+            """)
+            table_exists = cursor.fetchone() is not None
+        
+        if not table_exists:
+            print("   ⚠️  auth_tokens table doesn't exist, creating...")
+            init_db()
+            print("   ✅ Table created")
+        else:
+            print("   ✅ Table exists")
+        
+        # Step 3: Delete all existing tokens
+        print("\n3️⃣ Clearing existing tokens...")
+        cursor.execute("DELETE FROM auth_tokens")
         conn.commit()
         print("   ✅ All old tokens cleared")
         
-        # Step 2: Define correct tokens
+        # Step 4: Define correct tokens
         correct_tokens = [
             {
                 "token": "a9f8c2d4e1b7a5f3c8d6e2b9a7f4c1d8e5b3a6f9c2d7e4b1a8f5c3d9e6b2a7f4",
@@ -75,48 +98,51 @@ def emergency_token_fix():
             }
         ]
         
-        # Step 3: Insert all tokens
-        print("\n3️⃣ Inserting correct tokens...")
+        # Step 5: Insert all tokens
+        print("\n4️⃣ Inserting correct tokens...")
         for token_data in correct_tokens:
-            if DATABASE_URL:
-                # PostgreSQL
-                cursor.execute("""
-                    INSERT INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    token_data['token'],
-                    token_data['username'],
-                    datetime.now(),
-                    None,
-                    True,
-                    token_data['is_admin']
-                ))
-            else:
-                # SQLite
-                cursor.execute("""
-                    INSERT INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    token_data['token'],
-                    token_data['username'],
-                    datetime.now().isoformat(),
-                    None,
-                    True,
-                    token_data['is_admin']
-                ))
+            try:
+                if DATABASE_URL:
+                    # PostgreSQL
+                    cursor.execute("""
+                        INSERT INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        token_data['token'],
+                        token_data['username'],
+                        datetime.now(),
+                        None,
+                        True,
+                        token_data['is_admin']
+                    ))
+                else:
+                    # SQLite
+                    cursor.execute("""
+                        INSERT INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        token_data['token'],
+                        token_data['username'],
+                        datetime.now().isoformat(),
+                        None,
+                        True,
+                        token_data['is_admin']
+                    ))
+                
+                role_emoji = "🔑" if token_data['is_admin'] else "👤"
+                print(f"   ✅ {token_data['username']}: {role_emoji} {token_data['description']}")
             
-            role_emoji = "🔑" if token_data['is_admin'] else "👤"
-            print(f"   ✅ {token_data['username']}: {role_emoji} {token_data['description']}")
+            except Exception as e:
+                print(f"   ❌ Failed to insert {token_data['username']}: {e}")
+                import traceback
+                traceback.print_exc()
         
         conn.commit()
-        print("   ✅ All tokens inserted successfully")
+        print("   ✅ All tokens committed to database")
         
-        # Step 4: Verify tokens
-        print("\n4️⃣ Verification:")
-        if DATABASE_URL:
-            cursor.execute("SELECT token, username, is_admin, active FROM auth_tokens ORDER BY is_admin DESC, username")
-        else:
-            cursor.execute("SELECT token, username, is_admin, active FROM auth_tokens ORDER BY is_admin DESC, username")
+        # Step 6: Verify tokens
+        print("\n5️⃣ Verification:")
+        cursor.execute("SELECT token, username, is_admin, active FROM auth_tokens ORDER BY is_admin DESC, username")
         
         results = cursor.fetchall()
         
@@ -133,8 +159,8 @@ def emergency_token_fix():
             print(f"   • {row_dict['username']}: {role} {status}")
             print(f"     Token: {token_preview}")
         
-        # Step 5: Test authentication
-        print("\n5️⃣ Testing authentication...")
+        # Step 7: Test authentication
+        print("\n6️⃣ Testing authentication...")
         from auth import AuthManager
         auth = AuthManager()
         
