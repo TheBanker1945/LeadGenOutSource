@@ -103,7 +103,11 @@ def login(token: str):
         st.session_state.authenticated = True
         st.session_state.auth_token = token
         token_info = auth.get_token_info(token)
-        st.session_state.username = token_info.get('username', 'User')
+        # If token_info is None (e.g., from env variable), use default username
+        if token_info:
+            st.session_state.username = token_info.get('username', 'User')
+        else:
+            st.session_state.username = 'Admin'
         return True
     return False
 
