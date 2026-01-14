@@ -178,10 +178,10 @@ try:
     cursor.close()
     conn.close()
     
-except Exception as  accessing API usage: {e}")
+except Exception as e:
+    st.error(f"Error accessing API usage: {e}")
     import traceback
-    st.code(traceback.format_exc()
-    st.error(f"Error: {e}")
+    st.code(traceback.format_exc())
 
 st.markdown("---")
 
@@ -190,7 +190,9 @@ st.header("📋 Leads")
 
 try:
     conn = get_connection()
-    cursor = conn.cursor()as count FROM leads")
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) as count FROM leads")
     result = cursor.fetchone()
     count = result['count'] if DATABASE_URL else result[0]
     
@@ -202,9 +204,7 @@ try:
 except Exception as e:
     st.error(f"Error accessing leads: {e}")
     import traceback
-    st.code(traceback.format_exc()
-except Exception as e:
-    st.error(f"Error: {e}")
+    st.code(traceback.format_exc())
 
 st.markdown("---")
 
