@@ -16,7 +16,8 @@ def run_scraper(
     operational_only: bool = True,
     monthly_limit: int = 1000,
     main_city: str = None,
-    language_code: str = "en"
+    language_code: str = "en",
+    lead_limit: int = None
 ) -> dict:
     """
     Run the scraper for a specific city and niche with configurable filters.
@@ -32,6 +33,7 @@ def run_scraper(
         monthly_limit: Monthly API request limit (default: 1000)
         main_city: Main city name (used when city is a neighborhood, for proper database storage)
         language_code: Language code for API responses (default: "en" for English)
+        lead_limit: Maximum number of leads to save (stops when limit reached). None = no limit
     
     Returns:
         Dictionary with scraping statistics.
@@ -40,6 +42,8 @@ def run_scraper(
     print(f"\n{'='*50}")
     print(f"Scraping: {niche} in {location}")
     print(f"Filters: Website={has_website_filter}, Phone={has_phone_filter}, Operational={operational_only}")
+    if lead_limit:
+        print(f"Lead Limit: {lead_limit} leads")
     print(f"{'='*50}")
 
     # Initialize clients
@@ -60,11 +64,18 @@ def run_scraper(
         "filtered_out": {},
         "saved": 0,
         "duplicates": 0,
+        "limit_reached": False,
     }
 
     print(f"\nProcessing {stats['total']} results...")
 
     for place in places:
+        # Check if lead limit has been reached
+        if lead_limit and stats["saved"] >= lead_limit:
+            stats["limit_reached"] = True
+            print(f"\n⚠️  Lead limit of {lead_limit} reached! Stopping scraper...")
+            break
+        
         # Extract display name
         display_name_obj = place.get("displayName", {})
         company_name = display_name_obj.get("text", "Unknown")
@@ -139,6 +150,10 @@ def run_scraper(
     
     print(f"\nDuplicates:           {stats['duplicates']} (already in DB)")
     print(f"Saved to database:    {stats['saved']}")
+    
+    if stats.get("limit_reached"):
+        print(f"\n⚠️  LIMIT REACHED: Stopped at {lead_limit} leads")
+    
     print(f"{'='*50}\n")
 
     return stats

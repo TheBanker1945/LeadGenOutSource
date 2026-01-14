@@ -19,6 +19,7 @@ from src.database.repository import LeadRepository
 from src.scraper.rate_limiter import RateLimiter, RequestLimitExceeded
 from src.scraper.main import run_scraper
 from src.exporter.csv_exporter import export_to_csv, generate_csv_filename, format_rating
+from auth import AuthManager
 
 # Try to import geo_helper, but make it optional
 try:
@@ -35,6 +36,23 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ============================================================================
+# AUTHENTICATION CHECK - Must be logged in to access dashboard
+# ============================================================================
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.error("🔒 **Access Denied** - You must be logged in to access the dashboard")
+    st.info("👉 Please log in using the login page")
+    if st.button("Go to Login"):
+        st.switch_page("login.py")
+    st.stop()
+
+# ============================================================================
+# END AUTHENTICATION CHECK
+# ============================================================================
 
 # Auto-refresh for real-time monitoring (refreshes every 30 seconds)
 import time
@@ -253,6 +271,17 @@ def export_leads_ui(niche=None, city=None):
 
 st.sidebar.title("⚙️ Configuration")
 
+# Add logout button at the top of sidebar
+st.sidebar.markdown("---")
+user_display = st.session_state.get('username', 'User')
+st.sidebar.info(f"👤 Logged in as: **{user_display}**")
+if st.sidebar.button("🔓 Logout", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.auth_token = None
+    st.session_state.username = None
+    st.switch_page("login.py")
+st.sidebar.markdown("---")
+
 # Load config
 config = load_config()
 if not config:
@@ -309,6 +338,17 @@ max_pages = st.sidebar.number_input(
     value=config.get("scraping", {}).get("max_pages_per_area", 1)
 )
 
+lead_limit = st.sidebar.number_input(
+    "Lead Limit (per scrape)",
+    min_value=0,
+    max_value=10000,
+    value=config.get("scraping", {}).get("lead_limit", 0),
+    help="Maximum number of leads to save per scraping session. Set to 0 for no limit."
+)
+
+# Convert 0 to None for no limit
+lead_limit = None if lead_limit == 0 else lead_limit
+
 # Save button
 if st.sidebar.button("💾 Save Configuration", type="primary"):
     new_config = {
@@ -322,6 +362,7 @@ if st.sidebar.button("💾 Save Configuration", type="primary"):
         },
         "scraping": {
             "max_pages_per_area": max_pages,
+            "lead_limit": 0 if lead_limit is None else lead_limit,
             "use_neighborhood_splitting": config.get("scraping", {}).get("use_neighborhood_splitting", True),
             "language_code": config.get("scraping", {}).get("language_code", "en")
         },
@@ -509,9 +550,11 @@ with tab2:
         """)
     
     with col2:
+        lead_limit_display = f"{lead_limit} leads" if lead_limit else "No limit"
         st.info(f"""
         **Filters:** Website={has_website}, Phone={has_phone}  
         **Max Pages:** {max_pages} per area  
+        **Lead Limit:** {lead_limit_display}  
         **Neighborhood Splitting:** {'Enabled' if config.get('scraping', {}).get('use_neighborhood_splitting', True) else 'Disabled'}  
         """)
     
@@ -575,8 +618,12 @@ with tab2:
         overall_stats = {
             "total_scraped": 0,
             "total_saved": 0,
-            "failed_jobs": 0
+            "failed_jobs": 0,
+            "limit_reached": False
         }
+        
+        # Track cumulative leads for global limit
+        cumulative_saved = 0
         
         # Initialize database
         init_db()
@@ -584,11 +631,17 @@ with tab2:
         try:
             for location in locations:
                 for niche in niches:
+                    # Check if global lead limit reached
+                    if lead_limit and cumulative_saved >= lead_limit:
+                        overall_stats["limit_reached"] = True
+                        status_text.text(f"⚠️ Lead limit of {lead_limit} reached! Stopping scraper...")
+                        break
+                    
                     current_job += 1
                     progress = current_job / total_jobs
                     progress_bar.progress(progress)
                     
-                    status_text.text(f"Processing {current_job}/{total_jobs}: {niche} in {location}")
+                    status_text.text(f"Processing {current_job}/{total_jobs}: {niche} in {location} (Saved: {cumulative_saved}/{lead_limit or '∞'})")
                     
                     try:
                         # Get search areas
@@ -600,6 +653,16 @@ with tab2:
                         
                         # Scrape each area
                         for area in search_areas:
+                            # Check if global lead limit reached before each area
+                            if lead_limit and cumulative_saved >= lead_limit:
+                                overall_stats["limit_reached"] = True
+                                break
+                            
+                            # Calculate remaining leads for this area
+                            remaining_limit = None
+                            if lead_limit:
+                                remaining_limit = lead_limit - cumulative_saved
+                            
                             # If using neighborhood splitting, pass the main city
                             main_city_param = location if (use_neighborhood_splitting and area != location) else None
                             
@@ -613,11 +676,18 @@ with tab2:
                                 operational_only=operational_only,
                                 monthly_limit=monthly_limit,
                                 main_city=main_city_param,
-                                language_code=language_code
+                                language_code=language_code,
+                                lead_limit=remaining_limit
                             )
                             
                             overall_stats["total_scraped"] += area_stats.get("total", 0)
                             overall_stats["total_saved"] += area_stats.get("saved", 0)
+                            cumulative_saved += area_stats.get("saved", 0)
+                            
+                            # Check if limit was reached in this area
+                            if area_stats.get("limit_reached"):
+                                overall_stats["limit_reached"] = True
+                                break
                     
                     except RequestLimitExceeded:
                         st.error("🚫 Monthly API limit reached! Scraping stopped.")
@@ -627,10 +697,19 @@ with tab2:
                     except Exception as e:
                         st.warning(f"⚠️ Error processing {niche} in {location}: {str(e)}")
                         overall_stats["failed_jobs"] += 1
+                
+                # Break outer loop if limit reached
+                if overall_stats.get("limit_reached"):
+                    break
             
             # Success
             progress_bar.progress(1.0)
             status_text.empty()
+            
+            # Show success message with limit info if applicable
+            limit_msg = ""
+            if overall_stats.get("limit_reached"):
+                limit_msg = f'<br>⚠️ <strong>Lead limit reached:</strong> Stopped at {lead_limit} leads'
             
             st.markdown(
                 f'<div class="success-box">'
@@ -638,6 +717,7 @@ with tab2:
                 f'Total results: {overall_stats["total_scraped"]}<br>'
                 f'Leads saved: {overall_stats["total_saved"]}<br>'
                 f'Failed jobs: {overall_stats["failed_jobs"]}'
+                f'{limit_msg}'
                 f'</div>',
                 unsafe_allow_html=True
             )

@@ -2,6 +2,9 @@
 .env
 .env.template
 
+# Authentication tokens - DO NOT COMMIT
+auth_tokens.json
+
 # Database
 leads.db
 *.db
