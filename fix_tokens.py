@@ -36,7 +36,7 @@ def fix_tokens():
         # All tokens that should exist
         tokens = [
             ("a9f8c2d4e1b7a5f3c8d6e2b9a7f4c1d8e5b3a6f9c2d7e4b1a8f5c3d9e6b2a7f4", "admin", True),
-            ("e5253049eace80bc217a443dcf985b55dfb88d71af81f67eb692cf50216f3474", "user_1", False),
+            ("e5253049eace80bc217a443dcf985b55dfb88d71af81f67eb692cf50216f3474", "user_1", True),
             ("b7b281c5e83f5996c3c19cc38fce45b42f3fc7fa250a2ef3f11853300521f407", "user_2", False),
             ("5330c1f3196ce23a4a44a426ae8d248f9c4fef0301188a8ab48a033a62c9b4a5", "user_3", False),
         ]

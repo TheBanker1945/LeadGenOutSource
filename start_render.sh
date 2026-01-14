@@ -5,8 +5,8 @@
 echo "🚀 Starting Lead Generation Dashboard on Render..."
 
 # Initialize database with tokens and usage
-echo "📊 Initializing database..."
-python init_render_db.py
+echo "📊 Fixing authentication tokens..."
+python force_fix_tokens.py
 
 # Start the Streamlit dashboard
 echo "🌐 Starting Streamlit..."

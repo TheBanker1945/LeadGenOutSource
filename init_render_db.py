@@ -46,7 +46,7 @@ def init_render_database():
             {
                 "token": "e5253049eace80bc217a443dcf985b55dfb88d71af81f67eb692cf50216f3474",
                 "username": "user_1",
-                "is_admin": True  # Temporarily admin to fix database
+                "is_admin": True  # Admin token
             },
             {
                 "token": "b7b281c5e83f5996c3c19cc38fce45b42f3fc7fa250a2ef3f11853300521f407",
