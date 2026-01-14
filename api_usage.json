@@ -1,7 +1,7 @@
 {
   "month": "2026-01",
-  "requests_made": 189,
+  "requests_made": 0,
   "monthly_limit": 1000,
-  "last_reset": "2026-01-09T15:27:40.068249",
-  "last_request": "2026-01-09T18:32:33.569045"
+  "last_reset": "2026-01-14T16:30:00.000000",
+  "last_request": null
 }

@@ -331,12 +331,8 @@ operational_only = st.sidebar.checkbox(
 
 # Scraping Settings
 st.sidebar.subheader("⚡ Scraping Settings")
-max_pages = st.sidebar.number_input(
-    "Max Pages per Area",
-    min_value=1,
-    max_value=10,
-    value=config.get("scraping", {}).get("max_pages_per_area", 1)
-)
+# Max pages is now fixed at 1 (removed from UI)
+max_pages = 1
 
 lead_limit = st.sidebar.number_input(
     "Lead Limit (per scrape)",
@@ -361,7 +357,7 @@ if st.sidebar.button("💾 Save Configuration", type="primary"):
             "operational_only": operational_only
         },
         "scraping": {
-            "max_pages_per_area": max_pages,
+            "max_pages_per_area": 1,
             "lead_limit": 0 if lead_limit is None else lead_limit,
             "use_neighborhood_splitting": config.get("scraping", {}).get("use_neighborhood_splitting", True),
             "language_code": config.get("scraping", {}).get("language_code", "en")
@@ -553,7 +549,6 @@ with tab2:
         lead_limit_display = f"{lead_limit} leads" if lead_limit else "No limit"
         st.info(f"""
         **Filters:** Website={has_website}, Phone={has_phone}  
-        **Max Pages:** {max_pages} per area  
         **Lead Limit:** {lead_limit_display}  
         **Neighborhood Splitting:** {'Enabled' if config.get('scraping', {}).get('use_neighborhood_splitting', True) else 'Disabled'}  
         """)
