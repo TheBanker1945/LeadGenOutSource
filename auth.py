@@ -130,6 +130,21 @@ class AuthManager:
         tokens = self._load_tokens()
         return tokens.get(token)
     
+    def is_admin(self, token: str) -> bool:
+        """
+        Check if a token has admin privileges.
+        
+        Args:
+            token: Token to check
+            
+        Returns:
+            True if token is admin, False otherwise
+        """
+        token_info = self.get_token_info(token)
+        if not token_info:
+            return False
+        return token_info.get("is_admin", False)
+    
     def revoke_token(self, token: str) -> bool:
         """
         Revoke/deactivate a token.

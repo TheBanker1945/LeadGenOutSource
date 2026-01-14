@@ -1,11 +1,18 @@
 """
 Google Maps API Request Rate Limiter
 Enforces a hard monthly limit to prevent unexpected API costs.
+Now uses database storage for persistence across server restarts.
 """
 
-import json
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
+
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.database.db_manager import get_connection, DATABASE_URL
 
 
 class RequestLimitExceeded(Exception):
@@ -14,51 +21,147 @@ class RequestLimitExceeded(Exception):
 
 
 class RateLimiter:
-    """Tracks and enforces monthly API request limits."""
+    """Tracks and enforces monthly API request limits using database storage."""
     
     def __init__(self, limit_file: str = "api_usage.json", monthly_limit: int = 1000):
         """
         Initialize the rate limiter.
         
         Args:
-            limit_file: Path to the JSON file tracking usage
+            limit_file: DEPRECATED - Kept for backwards compatibility only
             monthly_limit: Maximum requests allowed per month
         """
-        self.limit_file = Path(limit_file)
         self.monthly_limit = monthly_limit
-        self._ensure_file_exists()
+        self._ensure_usage_exists()
     
-    def _ensure_file_exists(self):
-        """Create the usage file if it doesn't exist."""
-        if not self.limit_file.exists():
-            self._reset_usage()
+    def _ensure_usage_exists(self):
+        """Ensure usage record exists for current month in database."""
+        current_month = datetime.now().strftime("%Y-%m")
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if DATABASE_URL:
+                # PostgreSQL - check if current month exists
+                cursor.execute(
+                    "SELECT * FROM api_usage WHERE month = %s",
+                    (current_month,)
+                )
+                result = cursor.fetchone()
+                
+                if not result:
+                    # Create new record for current month
+                    cursor.execute(
+                        """INSERT INTO api_usage (month, requests_made, monthly_limit, last_reset)
+                           VALUES (%s, %s, %s, %s)""",
+                        (current_month, 0, self.monthly_limit, datetime.now())
+                    )
+                    conn.commit()
+            else:
+                # SQLite
+                cursor.execute(
+                    "SELECT * FROM api_usage WHERE month = ?",
+                    (current_month,)
+                )
+                result = cursor.fetchone()
+                
+                if not result:
+                    # Create new record for current month
+                    cursor.execute(
+                        """INSERT INTO api_usage (month, requests_made, monthly_limit, last_reset)
+                           VALUES (?, ?, ?, ?)""",
+                        (current_month, 0, self.monthly_limit, datetime.now())
+                    )
+                    conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
     
     def _load_usage(self) -> dict:
-        """Load usage data from file."""
+        """Load usage data from database."""
+        current_month = datetime.now().strftime("%Y-%m")
+        conn = get_connection()
+        cursor = conn.cursor()
+        
         try:
-            with open(self.limit_file, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            # Corrupted or missing file - reset
-            self._reset_usage()
-            with open(self.limit_file, 'r') as f:
-                return json.load(f)
+            if DATABASE_URL:
+                cursor.execute(
+                    "SELECT * FROM api_usage WHERE month = %s",
+                    (current_month,)
+                )
+            else:
+                cursor.execute(
+                    "SELECT * FROM api_usage WHERE month = ?",
+                    (current_month,)
+                )
+            
+            result = cursor.fetchone()
+            
+            if result:
+                return dict(result)
+            else:
+                # No record exists, create one
+                self._ensure_usage_exists()
+                return self._load_usage()
+        finally:
+            cursor.close()
+            conn.close()
     
     def _save_usage(self, data: dict):
-        """Save usage data to file."""
-        with open(self.limit_file, 'w') as f:
-            json.dump(data, f, indent=2)
+        """Save usage data to database."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if DATABASE_URL:
+                cursor.execute(
+                    """UPDATE api_usage 
+                       SET requests_made = %s, monthly_limit = %s, last_request = %s
+                       WHERE month = %s""",
+                    (data["requests_made"], data["monthly_limit"], 
+                     data.get("last_request"), data["month"])
+                )
+            else:
+                cursor.execute(
+                    """UPDATE api_usage 
+                       SET requests_made = ?, monthly_limit = ?, last_request = ?
+                       WHERE month = ?""",
+                    (data["requests_made"], data["monthly_limit"], 
+                     data.get("last_request"), data["month"])
+                )
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
     
     def _reset_usage(self):
         """Reset usage to zero for current month."""
-        now = datetime.now()
-        data = {
-            "month": now.strftime("%Y-%m"),
-            "requests_made": 0,
-            "monthly_limit": self.monthly_limit,
-            "last_reset": now.isoformat()
-        }
-        self._save_usage(data)
+        current_month = datetime.now().strftime("%Y-%m")
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if DATABASE_URL:
+                # Update existing or insert new
+                cursor.execute(
+                    """INSERT INTO api_usage (month, requests_made, monthly_limit, last_reset)
+                       VALUES (%s, %s, %s, %s)
+                       ON CONFLICT (month) DO UPDATE 
+                       SET requests_made = %s, monthly_limit = %s, last_reset = %s""",
+                    (current_month, 0, self.monthly_limit, datetime.now(),
+                     0, self.monthly_limit, datetime.now())
+                )
+            else:
+                # SQLite - use INSERT OR REPLACE
+                cursor.execute(
+                    """INSERT OR REPLACE INTO api_usage (month, requests_made, monthly_limit, last_reset)
+                       VALUES (?, ?, ?, ?)""",
+                    (current_month, 0, self.monthly_limit, datetime.now())
+                )
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
     
     def _check_month_reset(self, usage_data: dict) -> dict:
         """Check if we've entered a new month and reset if needed."""
@@ -108,7 +211,7 @@ class RateLimiter:
         usage_data = self._check_month_reset(usage_data)
         
         usage_data["requests_made"] += count
-        usage_data["last_request"] = datetime.now().isoformat()
+        usage_data["last_request"] = datetime.now()
         
         self._save_usage(usage_data)
     
@@ -128,8 +231,8 @@ class RateLimiter:
             "monthly_limit": usage_data["monthly_limit"],
             "requests_remaining": usage_data["monthly_limit"] - usage_data["requests_made"],
             "percentage_used": round((usage_data["requests_made"] / usage_data["monthly_limit"]) * 100, 1),
-            "last_reset": usage_data.get("last_reset", "Unknown"),
-            "last_request": usage_data.get("last_request", "Never")
+            "last_reset": str(usage_data.get("last_reset", "Unknown")),
+            "last_request": str(usage_data.get("last_request", "Never"))
         }
     
     def print_usage_warning(self):

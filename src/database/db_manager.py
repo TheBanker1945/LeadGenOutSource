@@ -57,6 +57,18 @@ def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # API usage tracking table (persists through server restarts)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS api_usage (
+                id SERIAL PRIMARY KEY,
+                month TEXT UNIQUE NOT NULL,
+                requests_made INTEGER DEFAULT 0,
+                monthly_limit INTEGER NOT NULL,
+                last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_request TIMESTAMP
+            )
+        """)
     else:
         # SQLite schema
         cursor.execute("""
@@ -74,6 +86,18 @@ def init_db() -> None:
                 mockup_path TEXT,
                 laptop_mockup_path TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # API usage tracking table (persists through server restarts)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS api_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                month TEXT UNIQUE NOT NULL,
+                requests_made INTEGER DEFAULT 0,
+                monthly_limit INTEGER NOT NULL,
+                last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_request TIMESTAMP
             )
         """)
     
