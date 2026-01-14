@@ -11,6 +11,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from auth import AuthManager
+from src.database.db_manager import init_db
+
+# Initialize database first (creates tables if they don't exist)
+init_db()
 
 # Page config
 st.set_page_config(

@@ -25,6 +25,14 @@ class AuthManager:
         self.tokens_file = Path(tokens_file)
         self.use_database = os.getenv("DATABASE_URL") is not None
         
+        # Ensure database is initialized if using database
+        if self.use_database:
+            try:
+                from src.database.db_manager import init_db
+                init_db()
+            except Exception as e:
+                print(f"Warning: Could not initialize database: {e}")
+        
         if not self.use_database:
             self._ensure_tokens_file()
     
