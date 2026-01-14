@@ -277,9 +277,9 @@ if st.sidebar.button("🔓 Logout", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.auth_token = None
     st.session_state.username = None
-    st.switch_page("login.py")
+    st.rerun()
 st.sidebar.markdown("---")
-rerun(
+
 # Load config
 config = load_config()
 if not config:

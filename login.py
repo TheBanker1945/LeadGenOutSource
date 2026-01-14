@@ -141,16 +141,19 @@ else:
         if submit_button:
             if not token_input:
                 st.error("⚠️ Please enter an authentication token")
-            elif len(token_input) != 64:
-                st.error("⚠️ Invalid token format. Token must be 64 characters long.")
             else:
-                with st.spinner("Authenticating..."):
-                    if login(token_input):
-                        st.success(f"✅ Login successful! Welcome, **{st.session_state.username}**")
-                        st.balloons()
-                        st.rerun()
-                    else:
-                        st.error("❌ Invalid or inactive authentication token. Please check your token and try again.")
+                # Strip whitespace from token
+                token_input = token_input.strip()
+                if len(token_input) != 64:
+                    st.error("⚠️ Invalid token format. Token must be 64 characters long.")
+                else:
+                    with st.spinner("Authenticating..."):
+                        if login(token_input):
+                            st.success(f"✅ Login successful! Welcome, **{st.session_state.username}**")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid or inactive authentication token. Please check your token and try again.")
 
 # Footer
 st.markdown("---")
