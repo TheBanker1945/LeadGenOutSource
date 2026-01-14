@@ -69,6 +69,18 @@ def init_db() -> None:
                 last_request TIMESTAMP
             )
         """)
+        
+        # Authentication tokens table (for Render deployment)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                token TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used TIMESTAMP,
+                active BOOLEAN DEFAULT TRUE,
+                is_admin BOOLEAN DEFAULT FALSE
+            )
+        """)
     else:
         # SQLite schema
         cursor.execute("""
@@ -98,6 +110,18 @@ def init_db() -> None:
                 monthly_limit INTEGER NOT NULL,
                 last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_request TIMESTAMP
+            )
+        """)
+        
+        # Authentication tokens table (for Render deployment)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                token TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used TIMESTAMP,
+                active BOOLEAN DEFAULT TRUE,
+                is_admin BOOLEAN DEFAULT FALSE
             )
         """)
     

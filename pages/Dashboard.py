@@ -57,6 +57,13 @@ import time
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
 
+# Display logged in user info
+if 'username' in st.session_state and st.session_state.username:
+    auth_manager = AuthManager()
+    is_admin = auth_manager.is_admin(st.session_state.get('auth_token', ''))
+    role_badge = "🔑 Admin" if is_admin else "👤 User"
+    st.sidebar.info(f"Logged in as: **{st.session_state.username}** {role_badge}")
+
 # Add refresh button and auto-refresh timer
 col_refresh1, col_refresh2 = st.columns([6, 1])
 with col_refresh2:
@@ -134,6 +141,9 @@ def get_usage_stats():
     config = load_config()
     if not config:
         return None
+    
+    # Ensure database is initialized (creates api_usage table if needed)
+    init_db()
     
     # Get monthly limit from environment variable or config (fallback to 1000)
     monthly_limit = int(os.getenv('MONTHLY_API_LIMIT', 

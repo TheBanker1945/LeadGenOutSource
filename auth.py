@@ -1,6 +1,7 @@
 """
 Authentication system for Lead Generation Dashboard
 Token-based authentication - no registration required
+Now with database support for production (Render) deployments
 """
 
 import json
@@ -19,13 +20,16 @@ class AuthManager:
         Initialize the auth manager.
         
         Args:
-            tokens_file: Path to the JSON file storing auth tokens
+            tokens_file: Path to the JSON file storing auth tokens (local only)
         """
         self.tokens_file = Path(tokens_file)
-        self._ensure_tokens_file()
+        self.use_database = os.getenv("DATABASE_URL") is not None
+        
+        if not self.use_database:
+            self._ensure_tokens_file()
     
     def _ensure_tokens_file(self):
-        """Create tokens file if it doesn't exist."""
+        """Create tokens file if it doesn't exist (local development only)."""
         if not self.tokens_file.exists():
             # Create file with initial admin token on first run
             print("⚠️ No auth_tokens.json found. Creating with default admin token...")
@@ -35,25 +39,79 @@ class AuthManager:
                     "username": "admin",
                     "created_at": datetime.now().isoformat(),
                     "last_used": None,
-                    "active": True
+                    "active": True,
+                    "is_admin": True
                 }
             }
             self._save_tokens(initial_tokens)
             print(f"✅ Admin token created: {admin_token}")
             print("⚠️ IMPORTANT: Save this token securely!")
     
+    def _get_db_connection(self):
+        """Get database connection (Render production only)."""
+        from src.database.db_manager import get_connection
+        return get_connection()
+    
     def _load_tokens(self) -> Dict:
-        """Load tokens from JSON file."""
-        try:
-            with open(self.tokens_file, 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
+        """Load tokens from JSON file or database."""
+        if self.use_database:
+            # Load from database (production)
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT * FROM auth_tokens")
+                results = cursor.fetchall()
+                tokens = {}
+                for row in results:
+                    row_dict = dict(row)
+                    token = row_dict.pop('token')
+                    tokens[token] = row_dict
+                return tokens
+            finally:
+                cursor.close()
+                conn.close()
+        else:
+            # Load from file (local development)
+            try:
+                with open(self.tokens_file, 'r') as f:
+                    return json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                return {}
     
     def _save_tokens(self, tokens: Dict):
-        """Save tokens to JSON file."""
-        with open(self.tokens_file, 'w') as f:
-            json.dump(tokens, f, indent=4, default=str)
+        """Save tokens to JSON file or database."""
+        if self.use_database:
+            # Save to database (production)
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
+            try:
+                for token, data in tokens.items():
+                    if os.getenv("DATABASE_URL"):
+                        # PostgreSQL
+                        cursor.execute("""
+                            INSERT INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (token) DO UPDATE 
+                            SET username = %s, last_used = %s, active = %s, is_admin = %s
+                        """, (token, data['username'], data['created_at'], data.get('last_used'),
+                              data.get('active', True), data.get('is_admin', False),
+                              data['username'], data.get('last_used'), data.get('active', True), 
+                              data.get('is_admin', False)))
+                    else:
+                        # SQLite
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO auth_tokens (token, username, created_at, last_used, active, is_admin)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (token, data['username'], data['created_at'], data.get('last_used'),
+                              data.get('active', True), data.get('is_admin', False)))
+                conn.commit()
+            finally:
+                cursor.close()
+                conn.close()
+        else:
+            # Save to file (local development)
+            with open(self.tokens_file, 'w') as f:
+                json.dump(tokens, f, indent=4, default=str)
     
     def generate_token(self, username: str = None) -> str:
         """
