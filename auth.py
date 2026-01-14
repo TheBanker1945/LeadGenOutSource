@@ -5,6 +5,7 @@ Token-based authentication - no registration required
 
 import json
 import secrets
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
@@ -26,7 +27,20 @@ class AuthManager:
     def _ensure_tokens_file(self):
         """Create tokens file if it doesn't exist."""
         if not self.tokens_file.exists():
-            self._save_tokens({})
+            # Create file with initial admin token on first run
+            print("⚠️ No auth_tokens.json found. Creating with default admin token...")
+            admin_token = secrets.token_hex(32)
+            initial_tokens = {
+                admin_token: {
+                    "username": "admin",
+                    "created_at": datetime.now().isoformat(),
+                    "last_used": None,
+                    "active": True
+                }
+            }
+            self._save_tokens(initial_tokens)
+            print(f"✅ Admin token created: {admin_token}")
+            print("⚠️ IMPORTANT: Save this token securely!")
     
     def _load_tokens(self) -> Dict:
         """Load tokens from JSON file."""
@@ -80,6 +94,11 @@ class AuthManager:
         Returns:
             True if token is valid and active, False otherwise
         """
+        # Check environment variable for master token (useful for Render.com)
+        env_token = os.getenv('MASTER_AUTH_TOKEN')
+        if env_token and token == env_token:
+            return True
+        
         tokens = self._load_tokens()
         
         if token not in tokens:

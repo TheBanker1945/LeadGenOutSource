@@ -135,7 +135,9 @@ def get_usage_stats():
     if not config:
         return None
     
-    monthly_limit = config.get("api_limits", {}).get("monthly_request_limit", 1000)
+    # Get monthly limit from environment variable or config (fallback to 1000)
+    monthly_limit = int(os.getenv('MONTHLY_API_LIMIT', 
+                                   config.get("api_limits", {}).get("monthly_request_limit", 1000)))
     limiter = RateLimiter(monthly_limit=monthly_limit)
     return limiter.get_usage_stats()
 
@@ -365,7 +367,7 @@ if st.sidebar.button("💾 Save Configuration", type="primary"):
             "language_code": config.get("scraping", {}).get("language_code", "en")
         },
         "api_limits": {
-            "monthly_request_limit": 1000  # Hard limit, cannot be changed
+            "monthly_request_limit": int(os.getenv('MONTHLY_API_LIMIT', 1000))
         },
         "output": config.get("output", {
             "csv_output_dir": "output/csv",
@@ -604,7 +606,8 @@ with tab2:
         
         # Get monthly limit from config
         config = load_config()
-        monthly_limit = config.get("api_limits", {}).get("monthly_request_limit", 1000)
+        monthly_limit = int(os.getenv('MONTHLY_API_LIMIT',
+                                       config.get("api_limits", {}).get("monthly_request_limit", 1000)))
         language_code = config.get("scraping", {}).get("language_code", "en")
         
         progress_bar = st.progress(0)
