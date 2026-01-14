@@ -49,7 +49,8 @@ def emergency_token_fix():
                     WHERE table_name = 'auth_tokens'
                 )
             """)
-            table_exists = cursor.fetchone()[0]
+            result = cursor.fetchone()
+            table_exists = list(result.values())[0] if result else False
         else:
             cursor.execute("""
                 SELECT name FROM sqlite_master 

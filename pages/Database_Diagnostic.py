@@ -76,7 +76,8 @@ try:
                 WHERE table_name = 'auth_tokens'
             )
         """)
-        table_exists = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        table_exists = list(result.values())[0] if result else False
     else:
         cursor.execute("""
             SELECT name FROM sqlite_master 
@@ -90,8 +91,9 @@ try:
     else:
         st.success("✅ auth_tokens table exists")
         
-        # Get token count
-        cursor.execute("SELECT COUNT(*) FROM auth_tokens")
+        # Get token countas count FROM auth_tokens")
+        result = cursor.fetchone()
+        count = result['count'] if DATABASE_URL else resultUNT(*) FROM auth_tokens")
         count = cursor.fetchone()[0]
         
         st.metric("Total Tokens", count)
@@ -176,7 +178,9 @@ try:
     cursor.close()
     conn.close()
     
-except Exception as e:
+except Exception as  accessing API usage: {e}")
+    import traceback
+    st.code(traceback.format_exc()
     st.error(f"Error: {e}")
 
 st.markdown("---")
@@ -186,16 +190,19 @@ st.header("📋 Leads")
 
 try:
     conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) FROM leads")
-    count = cursor.fetchone()[0]
+    cursor = conn.cursor()as count FROM leads")
+    result = cursor.fetchone()
+    count = result['count'] if DATABASE_URL else result[0]
     
     st.metric("Total Leads", count)
     
     cursor.close()
     conn.close()
     
+except Exception as e:
+    st.error(f"Error accessing leads: {e}")
+    import traceback
+    st.code(traceback.format_exc()
 except Exception as e:
     st.error(f"Error: {e}")
 
