@@ -91,10 +91,10 @@ try:
     else:
         st.success("✅ auth_tokens table exists")
         
-        # Get token countas count FROM auth_tokens")
+        # Get token count
+        cursor.execute("SELECT COUNT(*) as count FROM auth_tokens")
         result = cursor.fetchone()
-        count = result['count'] if DATABASE_URL else resultUNT(*) FROM auth_tokens")
-        count = cursor.fetchone()[0]
+        count = result['count'] if DATABASE_URL else result[0]
         
         st.metric("Total Tokens", count)
         
