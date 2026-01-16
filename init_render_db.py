@@ -24,8 +24,21 @@ def init_render_database():
         print("   Skipping token initialization")
         return
     
+    # Add session_id column to existing leads table if it doesn't exist (migration)
+    print("\n🔧 Running database migrations...")
     conn = get_connection()
     cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            ALTER TABLE leads 
+            ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES scrape_sessions(id)
+        """)
+        conn.commit()
+        print("   ✅ Added session_id column to leads table")
+    except Exception as e:
+        # Column might already exist, that's okay
+        conn.rollback()
+        print(f"   ℹ️  Migration skipped (already applied or not needed)")
     
     try:
         # Check if tokens already exist

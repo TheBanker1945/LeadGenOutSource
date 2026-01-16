@@ -152,11 +152,15 @@ def get_usage_stats():
     return limiter.get_usage_stats()
 
 
-def get_leads_dataframe():
-    """Get all leads as a pandas DataFrame."""
+def get_leads_dataframe(session_id: int = None):
+    """Get all leads as a pandas DataFrame.
+    
+    Args:
+        session_id: Optional session ID to filter by
+    """
     init_db()
     repo = LeadRepository()
-    leads = repo.get_all_leads()
+    leads = repo.get_all_leads(session_id=session_id)
     
     if not leads:
         return pd.DataFrame()
@@ -233,10 +237,16 @@ def get_leads_dataframe():
     return df
 
 
-def export_leads_ui(niche=None, city=None):
-    """Export leads to CSV - returns CSV data and count for browser download only."""
+def export_leads_ui(niche=None, city=None, session_id=None):
+    """Export leads to CSV - returns CSV data and count for browser download only.
+    
+    Args:
+        niche: Optional niche filter
+        city: Optional city filter
+        session_id: Optional session filter
+    """
     repo = LeadRepository()
-    leads = repo.get_all_leads(city=city, niche=niche)
+    leads = repo.get_all_leads(city=city, niche=niche, session_id=session_id)
     
     if not leads:
         return None, 0
@@ -643,6 +653,18 @@ with tab2:
         # Initialize database
         init_db()
         
+        # Create a new scrape session
+        from datetime import datetime
+        session_name = f"{', '.join(niches[:2])} in {', '.join(locations[:2])} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        repo = LeadRepository()
+        session_id = repo.create_session(
+            session_name=session_name,
+            locations=locations,
+            niches=niches,
+            country=country,
+            state=state
+        )
+        
         try:
             for location in locations:
                 for niche in niches:
@@ -693,7 +715,8 @@ with tab2:
                                 monthly_limit=monthly_limit,
                                 main_city=main_city_param,
                                 language_code=language_code,
-                                lead_limit=remaining_limit
+                                lead_limit=remaining_limit,
+                                session_id=session_id
                             )
                             
                             overall_stats["total_scraped"] += area_stats.get("total", 0)
@@ -722,6 +745,15 @@ with tab2:
             progress_bar.progress(1.0)
             status_text.empty()
             
+            # Update session with final stats
+            session_status = 'completed'
+            if overall_stats["failed_jobs"] > 0:
+                session_status = 'partial'
+            elif overall_stats.get("limit_reached"):
+                session_status = 'stopped'
+            
+            repo.update_session(session_id, overall_stats["total_saved"], session_status)
+            
             # Show success message with limit info if applicable
             limit_msg = ""
             if overall_stats.get("limit_reached"):
@@ -730,6 +762,7 @@ with tab2:
             st.markdown(
                 f'<div class="success-box">'
                 f'<strong>✅ Scraping Complete!</strong><br>'
+                f'Session: {session_name}<br>'
                 f'Total results: {overall_stats["total_scraped"]}<br>'
                 f'Leads saved: {overall_stats["total_saved"]}<br>'
                 f'Failed jobs: {overall_stats["failed_jobs"]}'
@@ -767,8 +800,33 @@ with tab2:
 with tab3:
     st.header("📋 Leads Database")
     
-    # Get leads
-    df = get_leads_dataframe()
+    # Get all sessions for filter
+    repo = LeadRepository()
+    sessions = repo.get_all_sessions()
+    
+    # Session filter
+    col_filter1, col_filter2 = st.columns([3, 1])
+    
+    with col_filter1:
+        session_options = ["All Sessions"] + [f"{s['session_name']} ({s['total_leads']} leads)" for s in sessions]
+        selected_session = st.selectbox("Filter by Scrape Session", session_options, key="leads_session_filter")
+        
+        # Get session ID if not "All Sessions"
+        session_id_filter = None
+        if selected_session != "All Sessions":
+            session_index = session_options.index(selected_session) - 1
+            session_id_filter = sessions[session_index]['id']
+    
+    with col_filter2:
+        if sessions:
+            with st.expander("📊 Session History"):
+                for sess in sessions[:5]:  # Show last 5
+                    status_icon = "✅" if sess['status'] == 'completed' else "⚠️"
+                    st.text(f"{status_icon} {sess['session_name']}")
+                    st.caption(f"{sess['total_leads']} leads - {sess['started_at']}")
+    
+    # Get leads with session filter
+    df = get_leads_dataframe(session_id=session_id_filter)
     
     if df.empty:
         st.info("No leads in database yet. Start scraping to collect leads!")
@@ -823,8 +881,22 @@ with tab4:
     
     st.subheader("Export Options")
     
-    # Get actual niches and cities from database
-    db_df = get_leads_dataframe()
+    # Get all sessions for filter
+    repo = LeadRepository()
+    sessions = repo.get_all_sessions()
+    
+    # Session filter for export
+    session_export_options = ["All Sessions"] + [f"{s['session_name']} ({s['total_leads']} leads)" for s in sessions]
+    selected_export_session = st.selectbox("Export from Scrape Session", session_export_options, key="export_session_filter")
+    
+    # Get session ID if not "All Sessions"
+    export_session_id = None
+    if selected_export_session != "All Sessions":
+        session_index = session_export_options.index(selected_export_session) - 1
+        export_session_id = sessions[session_index]['id']
+    
+    # Get actual niches and cities from database (filtered by session)
+    db_df = get_leads_dataframe(session_id=export_session_id)
     
     if db_df.empty:
         st.info("No leads in database yet. Start scraping to collect leads!")
@@ -853,7 +925,7 @@ with tab4:
         city_filter = None if export_city == "All Cities" else export_city
         
         repo = LeadRepository()
-        preview_leads = repo.get_all_leads(city=city_filter, niche=niche_filter)
+        preview_leads = repo.get_all_leads(city=city_filter, niche=niche_filter, session_id=export_session_id)
         
         st.info(f"📊 {len(preview_leads)} leads will be exported")
         
@@ -862,7 +934,7 @@ with tab4:
             if not preview_leads:
                 st.warning("No leads to export with selected filters!")
             else:
-                csv_data, count, filename = export_leads_ui(niche=niche_filter, city=city_filter)
+                csv_data, count, filename = export_leads_ui(niche=niche_filter, city=city_filter, session_id=export_session_id)
                 
                 if csv_data:
                     st.success(f"✅ Ready to download {count} leads!")

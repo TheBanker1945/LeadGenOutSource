@@ -40,6 +40,23 @@ def init_db() -> None:
     
     if DATABASE_URL:
         # PostgreSQL schema
+        
+        # Scrape sessions table (tracks each scraping session)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scrape_sessions (
+                id SERIAL PRIMARY KEY,
+                session_name TEXT NOT NULL,
+                locations TEXT,
+                niches TEXT,
+                country TEXT,
+                state TEXT,
+                total_leads INTEGER DEFAULT 0,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                status TEXT DEFAULT 'running'
+            )
+        """)
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS leads (
                 id SERIAL PRIMARY KEY,
@@ -54,6 +71,7 @@ def init_db() -> None:
                 status TEXT DEFAULT 'NEW',
                 mockup_path TEXT,
                 laptop_mockup_path TEXT,
+                session_id INTEGER REFERENCES scrape_sessions(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -83,6 +101,23 @@ def init_db() -> None:
         """)
     else:
         # SQLite schema
+        
+        # Scrape sessions table (tracks each scraping session)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scrape_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_name TEXT NOT NULL,
+                locations TEXT,
+                niches TEXT,
+                country TEXT,
+                state TEXT,
+                total_leads INTEGER DEFAULT 0,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                status TEXT DEFAULT 'running'
+            )
+        """)
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS leads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,6 +132,7 @@ def init_db() -> None:
                 status TEXT DEFAULT 'NEW',
                 mockup_path TEXT,
                 laptop_mockup_path TEXT,
+                session_id INTEGER REFERENCES scrape_sessions(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)

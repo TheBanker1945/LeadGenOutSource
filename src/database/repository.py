@@ -10,7 +10,7 @@ from .db_manager import get_connection
 class LeadRepository:
     """Repository class for lead CRUD operations."""
 
-    def add_lead(self, data: dict) -> bool:
+    def add_lead(self, data: dict, session_id: Optional[int] = None) -> bool:
         """
         Adds a new lead to the database.
         
@@ -24,6 +24,7 @@ class LeadRepository:
                   - niche (optional)
                   - rating (optional)
                   - operating_hours (optional)
+            session_id: Optional scrape session ID to associate this lead with
         
         Returns:
             True if lead was added successfully, False if phone already exists.
@@ -31,17 +32,21 @@ class LeadRepository:
         conn = get_connection()
         cursor = conn.cursor()
         
+        # Add session_id to data if provided
+        if session_id is not None:
+            data['session_id'] = session_id
+        
         try:
             if os.getenv("DATABASE_URL"):
                 # PostgreSQL uses %s placeholders
                 cursor.execute("""
                     INSERT INTO leads (
                         company_name, address, city, phone, website, 
-                        niche, rating, operating_hours
+                        niche, rating, operating_hours, session_id
                     )
                     VALUES (
                         %(company_name)s, %(address)s, %(city)s, %(phone)s, %(website)s,
-                        %(niche)s, %(rating)s, %(operating_hours)s
+                        %(niche)s, %(rating)s, %(operating_hours)s, %(session_id)s
                     )
                 """, data)
             else:
@@ -49,11 +54,11 @@ class LeadRepository:
                 cursor.execute("""
                     INSERT INTO leads (
                         company_name, address, city, phone, website, 
-                        niche, rating, operating_hours
+                        niche, rating, operating_hours, session_id
                     )
                     VALUES (
                         :company_name, :address, :city, :phone, :website,
-                        :niche, :rating, :operating_hours
+                        :niche, :rating, :operating_hours, :session_id
                     )
                 """, data)
             
@@ -166,7 +171,8 @@ class LeadRepository:
     def get_all_leads(
         self,
         city: Optional[str] = None,
-        niche: Optional[str] = None
+        niche: Optional[str] = None,
+        session_id: Optional[int] = None
     ) -> list[dict]:
         """
         Returns all leads from the database.
@@ -174,6 +180,7 @@ class LeadRepository:
         Args:
             city: Optional city filter. If provided, only returns leads from this city.
             niche: Optional niche filter. If provided, only returns leads for this niche.
+            session_id: Optional session filter. If provided, only returns leads from this session.
         
         Returns:
             List of lead dictionaries with all fields.
@@ -184,7 +191,7 @@ class LeadRepository:
         query = """
             SELECT id, company_name, address, city, phone, website, 
                    niche, rating, operating_hours, status,
-                   mockup_path, laptop_mockup_path, created_at
+                   mockup_path, laptop_mockup_path, session_id, created_at
             FROM leads
             WHERE 1=1
         """
@@ -203,9 +210,99 @@ class LeadRepository:
             query += f" AND niche = {placeholder}"
             params.append(niche)
         
+        # Add session filter if provided
+        if session_id:
+            query += f" AND session_id = {placeholder}"
+            params.append(session_id)
+        
         query += " ORDER BY created_at DESC"
         
         cursor.execute(query, params)
+        results = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return results
+    
+    def create_session(self, session_name: str, locations: list, niches: list, 
+                       country: str = "", state: str = "") -> int:
+        """
+        Creates a new scrape session.
+        
+        Args:
+            session_name: Name for this session
+            locations: List of locations being scraped
+            niches: List of niches being scraped
+            country: Country being scraped
+            state: State being scraped
+        
+        Returns:
+            The ID of the created session
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        locations_str = ", ".join(locations)
+        niches_str = ", ".join(niches)
+        
+        if os.getenv("DATABASE_URL"):
+            cursor.execute("""
+                INSERT INTO scrape_sessions (session_name, locations, niches, country, state, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (session_name, locations_str, niches_str, country, state, 'running'))
+            session_id = cursor.fetchone()['id']
+        else:
+            cursor.execute("""
+                INSERT INTO scrape_sessions (session_name, locations, niches, country, state, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (session_name, locations_str, niches_str, country, state, 'running'))
+            session_id = cursor.lastrowid
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return session_id
+    
+    def update_session(self, session_id: int, total_leads: int, status: str = 'completed'):
+        """
+        Updates a scrape session with final stats.
+        
+        Args:
+            session_id: The session ID to update
+            total_leads: Total number of leads scraped
+            status: Final status ('completed', 'failed', 'stopped')
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        placeholder = '%s' if os.getenv("DATABASE_URL") else '?'
+        
+        cursor.execute(f"""
+            UPDATE scrape_sessions
+            SET total_leads = {placeholder}, status = {placeholder}, completed_at = CURRENT_TIMESTAMP
+            WHERE id = {placeholder}
+        """, (total_leads, status, session_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+    
+    def get_all_sessions(self) -> list[dict]:
+        """
+        Returns all scrape sessions.
+        
+        Returns:
+            List of session dictionaries
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, session_name, locations, niches, country, state,
+                   total_leads, started_at, completed_at, status
+            FROM scrape_sessions
+            ORDER BY started_at DESC
+        """)
+        
         results = [dict(row) for row in cursor.fetchall()]
         cursor.close()
         conn.close()

@@ -18,7 +18,8 @@ def run_scraper(
     monthly_limit: int = 1000,
     main_city: str = None,
     language_code: str = "en",
-    lead_limit: int = None
+    lead_limit: int = None,
+    session_id: int = None
 ) -> dict:
     """
     Run the scraper for a specific city and niche with configurable filters.
@@ -139,8 +140,8 @@ def run_scraper(
             "operating_hours": operating_hours if operating_hours else None,
         }
 
-        # Save to database
-        if repo.add_lead(lead_data):
+        # Save to database with session tracking
+        if repo.add_lead(lead_data, session_id=session_id):
             stats["saved"] += 1
             rating_str = format_rating(rating) if rating else "No rating"
             print(f"  {icon} [{lead_type}] {company_name} | ⭐ {rating_str} | 📞 {phone or 'No phone'}")
