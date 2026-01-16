@@ -18,24 +18,26 @@ def init_render_database():
     init_db()
     print("   ✅ Database schema ready")
     
-    # Check if running on Render
-    if not DATABASE_URL:
-        print("\n⚠️  Not running on Render (DATABASE_URL not set)")
-        print("   Skipping token initialization")
-        return
-    
     # Add session_id column to existing leads table if it doesn't exist (migration)
+    # This runs for both PostgreSQL and SQLite
     print("\n🔧 Running database migrations...")
     conn = get_connection()
     cursor = conn.cursor()
     try:
         # Check if session_id column exists
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'leads' AND column_name = 'session_id'
-        """)
-        column_exists = cursor.fetchone() is not None
+        if DATABASE_URL:
+            # PostgreSQL - check information_schema
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'leads' AND column_name = 'session_id'
+            """)
+            column_exists = cursor.fetchone() is not None
+        else:
+            # SQLite - check PRAGMA
+            cursor.execute("PRAGMA table_info(leads)")
+            columns = [row[1] for row in cursor.fetchall()]
+            column_exists = 'session_id' in columns
         
         if not column_exists:
             print("   📝 Adding session_id column to leads table...")
@@ -50,6 +52,16 @@ def init_render_database():
     except Exception as e:
         conn.rollback()
         print(f"   ❌ Migration error: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Check if running on Render
+    if not DATABASE_URL:
+        print("\n⚠️  Not running on Render (DATABASE_URL not set)")
+        print("   Skipping token initialization")
+        cursor.close()
+        conn.close()
+        return
     
     try:
         # Check if tokens already exist
