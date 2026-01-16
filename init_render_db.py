@@ -29,16 +29,27 @@ def init_render_database():
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # Check if session_id column exists
         cursor.execute("""
-            ALTER TABLE leads 
-            ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES scrape_sessions(id)
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'leads' AND column_name = 'session_id'
         """)
-        conn.commit()
-        print("   ✅ Added session_id column to leads table")
+        column_exists = cursor.fetchone() is not None
+        
+        if not column_exists:
+            print("   📝 Adding session_id column to leads table...")
+            cursor.execute("""
+                ALTER TABLE leads 
+                ADD COLUMN session_id INTEGER REFERENCES scrape_sessions(id)
+            """)
+            conn.commit()
+            print("   ✅ Added session_id column to leads table")
+        else:
+            print("   ℹ️  session_id column already exists")
     except Exception as e:
-        # Column might already exist, that's okay
         conn.rollback()
-        print(f"   ℹ️  Migration skipped (already applied or not needed)")
+        print(f"   ❌ Migration error: {e}")
     
     try:
         # Check if tokens already exist
