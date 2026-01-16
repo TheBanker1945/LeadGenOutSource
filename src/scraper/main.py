@@ -11,6 +11,7 @@ def run_scraper(
     niche: str,
     max_pages: int = 1,
     country: str = "",
+    state: str = "",
     has_website_filter: FilterOption = "Any",
     has_phone_filter: FilterOption = "Any",
     operational_only: bool = True,
@@ -27,6 +28,7 @@ def run_scraper(
         niche: Business niche to search for (e.g., "plumbers")
         max_pages: Maximum number of pages to fetch from Google Maps API
         country: Country to search in (e.g., "Netherlands")
+        state: State/Province for more specific location (e.g., "IL" for Illinois). Optional.
         has_website_filter: "Yes" = must have website, "No" = must NOT have website, "Any" = don't care
         has_phone_filter: "Yes" = must have phone, "No" = must NOT have phone, "Any" = don't care
         operational_only: If True, skip non-operational businesses
@@ -38,7 +40,15 @@ def run_scraper(
     Returns:
         Dictionary with scraping statistics.
     """
-    location = f"{city}, {country}" if country else city
+    # Build location string: City, State, Country (if state is provided, add it)
+    if state and country:
+        location = f"{city}, {state}, {country}"
+    elif state:
+        location = f"{city}, {state}"
+    elif country:
+        location = f"{city}, {country}"
+    else:
+        location = city
     print(f"\n{'='*50}")
     print(f"Scraping: {niche} in {location}")
     print(f"Filters: Website={has_website_filter}, Phone={has_phone_filter}, Operational={operational_only}")

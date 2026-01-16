@@ -311,6 +311,12 @@ country = st.sidebar.text_input(
     value=config.get("country", "")
 )
 
+state = st.sidebar.text_input(
+    "State/Province (Optional)",
+    value=config.get("state", ""),
+    help="For USA: use state abbreviation (e.g., IL, NY, CA) or full name. Helps disambiguate cities like Springfield."
+)
+
 # Niches
 st.sidebar.subheader("🎯 Niches")
 niches_text = st.sidebar.text_area(
@@ -360,6 +366,7 @@ if st.sidebar.button("💾 Save Configuration", type="primary"):
     new_config = {
         "locations": locations,
         "country": country,
+        "state": state,
         "niches": niches,
         "filters": {
             "has_website": has_website,
@@ -549,9 +556,11 @@ with tab2:
     col1, col2 = st.columns(2)
     
     with col1:
+        state_display = f"{state}" if state else "Not specified"
         st.info(f"""
         **Locations:** {len(locations)}  
         **Country:** {country or 'Not specified'}  
+        **State:** {state_display}  
         **Niches:** {len(niches)}  
         """)
     
@@ -677,6 +686,7 @@ with tab2:
                                 niche=niche,
                                 max_pages=max_pages,
                                 country=country,
+                                state=state,
                                 has_website_filter=has_website,
                                 has_phone_filter=has_phone,
                                 operational_only=operational_only,

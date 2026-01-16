@@ -1,6 +1,7 @@
 locations:
 - Chicago
 country: USA
+state: ""
 niches:
 - gym
 filters:
